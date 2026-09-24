@@ -27,6 +27,7 @@ use Test::More;
 use lib 'lib', 't/lib';
 use Run qw(run_capturing);
 use Tira;
+use Tira::CLI;
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $root = File::Spec->catdir( $tmp, 'board' );
@@ -104,8 +105,15 @@ PL
 
 sub holes_says {
     my ($column) = @_;
-    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => $column )
-      if defined $column;
+    if ( defined $column ) {
+
+        # Routed through the real dashboard move path (TKT-1144/TKT-1145:
+        # record_move itself now enforces the column chain for every other
+        # caller) - these jump straight to an arbitrary column, not what
+        # this file is testing.
+        my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+        $providers{move}->( { ref => $card->{ref}, column => $column, type => 'ticket', _signed_in => 'claude' } );
+    }
 
     my $here = getcwd();
     chdir $tmp or die "chdir: $!";

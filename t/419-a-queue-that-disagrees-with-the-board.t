@@ -47,6 +47,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $root = File::Spec->catdir( $tmp, 'queue' );
@@ -63,8 +64,13 @@ sub card_in {
     my $card = $tira->create_record(
         project => $root, author => 'claude', type => 'ticket', title => $title );
     return $card if $column eq 'backlog';
-    $tira->record_move(
-        project => $root, author => 'claude', ref => $card->{ref}, column => $column );
+
+    # Routed through the real dashboard move path (TKT-1144/TKT-1145:
+    # record_move itself now enforces the column chain for every other
+    # caller) - this helper jumps straight to an arbitrary column to set up
+    # fixtures, not to test the chain gate.
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    $providers{move}->( { ref => $card->{ref}, column => $column, type => 'ticket', _signed_in => 'claude' } );
     return $card;
 }
 
@@ -377,8 +383,10 @@ $tira->policy_add( project => $other, rule => 'task-card-mismatch',
     column => 'push', action => 'bridge-reminder' );
 my $their_card = $tira->create_record(
     project => $other, author => 'claude', type => 'ticket', title => 'a card being released' );
-$tira->record_move(
-    project => $other, author => 'claude', ref => $their_card->{ref}, column => 'push' );
+{
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $other );
+    $providers{move}->( { ref => $their_card->{ref}, column => 'push', type => 'ticket', _signed_in => 'claude' } );
+}
 my $their_task = $tira->tasklist_add(
     project => $other, text => 'Run the release and watch it land', refs => [ $their_card->{ref} ] );
 $tira->tasklist_update( project => $other, id => $their_task->{id}, status => 'working' );
@@ -403,8 +411,10 @@ $tira->policy_add( project => $listed, rule => 'task-card-mismatch',
     column => 'implement, push', action => 'bridge-reminder' );
 my $listed_card = $tira->create_record(
     project => $listed, author => 'claude', type => 'ticket', title => 'a card being released' );
-$tira->record_move(
-    project => $listed, author => 'claude', ref => $listed_card->{ref}, column => 'push' );
+{
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $listed );
+    $providers{move}->( { ref => $listed_card->{ref}, column => 'push', type => 'ticket', _signed_in => 'claude' } );
+}
 my $listed_task = $tira->tasklist_add(
     project => $listed, text => 'Run the release and watch it land', refs => [ $listed_card->{ref} ] );
 $tira->tasklist_update( project => $listed, id => $listed_task->{id}, status => 'working' );

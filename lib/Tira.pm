@@ -3206,9 +3206,12 @@ sub _column_skip_blocked {
 
     my ($from_col) = grep { $_->{name} eq $from } @{$columns};
     my $fork = $from_col ? ( $from_col->{next} // [] ) : [];
-    my @expected;
+    my ( @expected, $is_fork );
     if ( @{$fork} ) {
-        @expected = @{$fork} if !grep { $_ eq $to } @{$fork};
+        if ( !grep { $_ eq $to } @{$fork} ) {
+            @expected = @{$fork};
+            $is_fork  = 1;
+        }
     }
     elsif ( $to_idx > $from_idx + 1 ) {
         @expected = ( $columns->[ $from_idx + 1 ]{name} );
@@ -3223,7 +3226,7 @@ sub _column_skip_blocked {
         last SKIPPED;
     }
     return undef if $all_gated;
-    return \@expected;
+    return { expected => \@expected, fork => $is_fork ? 1 : 0 };
 }
 
 sub _unjudged_answers {
@@ -3231,6 +3234,15 @@ sub _unjudged_answers {
     return [ grep {
         $_->{answer} && !$_->{discarded_at} && !( $_->{answer}{mark} // '' );
     } @{ $record->{questions} // [] } ];
+}
+
+# Same truncation as lib/Tira/CLI/Move.pm's own _first_line - one line of a
+# question, short enough to sit in a refusal beside its id.
+sub _question_first_line {
+    my ($text) = @_;
+    my ($line) = split /\n/, ( $text // '' );
+    $line //= '';
+    return length($line) > 72 ? substr( $line, 0, 69 ) . '...' : $line;
 }
 
 sub record_move {
@@ -3316,22 +3328,37 @@ sub record_move {
             && $previous_column ne $column
             && defined $previous_column && $previous_column ne '' )
         {
-            my $expected = _column_skip_blocked(
-                _column_defaults( $config->{columns} ), $previous_column, $column, $record->{gate_passing_log} // [] );
-            if ( defined $expected ) {
+            my $defaulted = _column_defaults( $config->{columns} );
+            my $blocked   = _column_skip_blocked(
+                $defaulted, $previous_column, $column, $record->{gate_passing_log} // [] );
+            if ( defined $blocked ) {
+                my @expected = @{ $blocked->{expected} };
                 die "Cannot move $args{ref} to $column - the next column should be "
-                  . join( ' or ', @{$expected} ) . ".\n"
-                  . "  Move there first, e.g.:  d2 tira.$type.move --ref $args{ref} --column $expected->[0]\n";
+                  . join( ' or ', @expected ) . ".\n"
+                  . ( $blocked->{fork}
+                    ? "  Move there first, e.g.:  d2 tira.$type.move --ref $args{ref} --column $expected[0]\n"
+                    : "  Move there first:  d2 tira.$type.move --ref $args{ref} --column $expected[0]\n" );
             }
 
-            my @unjudged = @{ _unjudged_answers($record) };
-            if (@unjudged) {
-                die "Cannot move $args{ref} out of $previous_column - this card carries "
-                  . ( @unjudged == 1 ? 'an answer' : scalar(@unjudged) . ' answers' )
-                  . " nobody has judged:\n"
-                  . join( '', map { "  $_->{id}  " . ( split /\n/, $_->{text} // '' )[0] . "\n" } @unjudged )
-                  . "  Judge it, then move again:\n"
-                  . "    d2 tira.question.mark --ref $args{ref} --id $unjudged[0]{id} --mark ok|not-ok\n";
+            # Forward moves only, same as _unjudged_answer_violation's own
+            # index comparison - a backward move is unconditional by TKT-455's
+            # design, and an unjudged answer is a particularly good reason to
+            # retreat.
+            my %index;
+            my $i = 0;
+            for my $col ( @{$defaulted} ) { $index{ $col->{name} } = $i++; }
+            if ( exists $index{$previous_column} && exists $index{$column}
+                && $index{$column} > $index{$previous_column} )
+            {
+                my @unjudged = @{ _unjudged_answers($record) };
+                if (@unjudged) {
+                    die "Cannot move $args{ref} out of $previous_column - this card carries "
+                      . ( @unjudged == 1 ? 'an answer' : scalar(@unjudged) . ' answers' )
+                      . " nobody has judged:\n"
+                      . join( '', map { "  $_->{id}  " . _question_first_line( $_->{text} ) . "\n" } @unjudged )
+                      . "  Judge it, then move again:\n"
+                      . "    d2 tira.question.mark --ref $args{ref} --id $unjudged[0]{id} --mark ok|not-ok\n";
+                }
             }
         }
         rename $path, $destination or die "Cannot move '$args{ref}': $!\n";

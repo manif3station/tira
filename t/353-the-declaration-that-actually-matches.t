@@ -23,6 +23,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $now  = '2026-08-23T09:00:00Z';
@@ -41,7 +42,13 @@ sub card {
 
 sub move_to {
     my ( $ref, $column ) = @_;
-    $tira->record_move( author => 'claude', project => $root, ref => $ref, column => $column );
+
+    # Routed through the real dashboard move path (TKT-1144/TKT-1145:
+    # record_move itself now enforces the column chain for every other
+    # caller) - these jump straight to an arbitrary column to reconstruct
+    # the board's shape, not to test the chain gate.
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    $providers{move}->( { ref => $ref, column => $column, type => 'ticket', _signed_in => 'claude' } );
 }
 
 # --- reconstruct this board's own shape: one rule, declared per column ------

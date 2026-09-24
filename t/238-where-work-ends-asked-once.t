@@ -39,6 +39,7 @@ use Test::More;
 use lib 'lib', 't/lib';
 use Run qw(run_capturing);
 use Tira;
+use Tira::CLI;
 
 my $tmp   = tempdir( CLEANUP => 1 );
 my $skill = File::Spec->rel2abs('.');
@@ -98,7 +99,10 @@ is_deeply( $tira->_ending_columns( $marked, 'ticket' ), { shipped => 1 },
 
 my $done = $tira->create_record( project => $marked, type => 'ticket',
     title => 'Work that is finished and shipped' );
-$tira->record_move(author => 'claude',  project => $marked, ref => $done->{ref}, column => 'shipped' );
+{
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $marked );
+    $providers{move}->( { ref => $done->{ref}, column => 'shipped', type => 'ticket', _signed_in => 'claude' } );
+}
 
 {
     my ( $status, $said ) = gate( $marked, $done->{ref} );
@@ -127,7 +131,10 @@ $tira->project_new(
 
 my $old = $tira->create_record( project => $plain, type => 'ticket',
     title => 'Finished long ago, under an older definition' );
-$tira->record_move(author => 'claude',  project => $plain, ref => $old->{ref}, column => 'done' );
+{
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $plain );
+    $providers{move}->( { ref => $old->{ref}, column => 'done', type => 'ticket', _signed_in => 'claude' } );
+}
 
 {
     my ( $status, $said ) = gate( $plain, $old->{ref} );

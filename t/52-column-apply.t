@@ -31,6 +31,15 @@ sub names {
     return [ map { $_->{name} } @{ $tira->column_list( project => $root, type => 'ticket' ) } ];
 }
 
+# Routed through the real dashboard move path (TKT-1144/TKT-1145: record_move
+# itself now enforces the column chain for every other caller), for moves
+# that skip an intermediate column - not what this file is testing.
+sub browser_moved {
+    my ( $ref, $column, $root ) = @_;
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    return $providers{move}->( { ref => $ref, column => $column, type => 'ticket', _signed_in => 'claude' } );
+}
+
 my $root = File::Spec->catdir( $tmp, 'proj' );
 
 # The board every command here works on, named the one way there is.
@@ -38,7 +47,7 @@ my $root = File::Spec->catdir( $tmp, 'proj' );
 $ENV{TIRA_HOME} = $root;
 $tira->project_new( name => 'Layout', dir => $root, columns => ['Backlog, Doing, Review'], members => ['claude'] );
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'A card' );
-$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'review' );
+browser_moved( $card->{ref}, 'review', $root );
 
 # Applying what is already there changes nothing, and says so.
 my $same = $tira->column_apply(
@@ -85,7 +94,7 @@ is_deeply( $applied->{removed}, ['doing'], 'and what it removed' );
 
 # Removing a column relocates its cards exactly as removing one at a time does.
 my $stranded = $tira->create_record( project => $root, type => 'ticket', title => 'Stranded' );
-$tira->record_move(author => 'claude',  project => $root, ref => $stranded->{ref}, column => 'shipped' );
+browser_moved( $stranded->{ref}, 'shipped', $root );
 $tira->column_apply(
     project => $root, type => 'ticket',
     columns => [ { name => 'backlog' }, { name => 'review' }, { name => 'discard' } ],

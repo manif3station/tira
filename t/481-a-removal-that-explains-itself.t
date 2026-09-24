@@ -20,6 +20,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub { '2026-09-01T18:00:00Z' } );
@@ -70,7 +71,15 @@ ok( !( grep { $_->{rule} eq 'discard-unexplained' && $_->{ref} eq $card->{ref} }
 
 $tira->column_add( project => $root, type => 'ticket', name => 'staging', label => 'Staging' );
 my $other = $tira->create_record( project => $root, type => 'ticket', title => 'Already moved on' );
-$tira->record_move( project => $root, ref => $other->{ref}, column => 'staging', author => 'ada' );
+
+# 'staging' was re-added at the end of the column order (after 'done'), so a
+# direct backlog -> staging move now skips it - routed through the real
+# dashboard move path (TKT-1144/TKT-1145) since this is fixture setup, not a
+# test of the chain gate.
+{
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    $providers{move}->( { ref => $other->{ref}, column => 'staging', type => 'ticket', _signed_in => 'ada' } );
+}
 $tira->required_item_add(
     project => $root, ref => $other->{ref}, column => 'staging',
     item => 'Verify the thing', status => 'pending', author => 'ada',

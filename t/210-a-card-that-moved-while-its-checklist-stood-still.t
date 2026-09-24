@@ -31,6 +31,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
 
@@ -110,8 +111,15 @@ sub reported {
         project => $root, ref => $card->{ref}, item => 'do the work', status => 'To Do' );
     $tira->record_move( project => $root, ref => $card->{ref},
         column => 'tests-red', author => 'claude' );
-    $tira->record_move( project => $root, ref => $card->{ref},
-        column => 'done', author => 'claude' );
+
+    # Routed through the real dashboard move path (TKT-1144/TKT-1145:
+    # record_move itself now enforces the column chain for every other
+    # caller) - this skips straight past 'implement', not what this file
+    # is testing.
+    {
+        my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+        $providers{move}->( { ref => $card->{ref}, column => 'done', type => 'ticket', _signed_in => 'claude' } );
+    }
 
     is( reported( $tira, $root, 'finished' ), 0,
         'and a card moved where the work is over is not chased for ticking nothing' );

@@ -24,6 +24,7 @@ use Test::More;
 use lib 'lib', 't/lib';
 use Run qw(run_capturing);
 use Tira;
+use Tira::CLI;
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $root = File::Spec->catdir( $tmp, 'board' );
@@ -46,7 +47,13 @@ my $card = $tira->create_record(
 );
 $tira->checklist_add( author => 'claude', project => $root, ref => $card->{ref},
     item => 'the work', status => 'Done', command => ['did it'], proof => ['done'] );
-$tira->record_move( author => 'claude', project => $root, ref => $card->{ref}, column => 'push' );
+# Routed through the real dashboard move path (TKT-1144/TKT-1145: record_move
+# itself now enforces the column chain for every other caller) - this skips
+# straight to 'push', not what this file is testing.
+{
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    $providers{move}->( { ref => $card->{ref}, column => 'push', type => 'ticket', _signed_in => 'claude' } );
+}
 
 my $tool  = File::Spec->rel2abs( File::Spec->catfile( qw(.developer-dashboard skills card cli holes) ) );
 my $skill = File::Spec->rel2abs('.');

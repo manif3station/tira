@@ -9,6 +9,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub { '2026-08-12T09:00:00Z' } );
@@ -39,6 +40,16 @@ sub violations {
           @{ $tira->policy_evaluate( project => $root ) } ];
 }
 
+# Routed through the real dashboard move path (TKT-1144/TKT-1145: record_move
+# itself now enforces the column chain for every other caller) - these skip
+# straight past 'doing', not what this file is testing.
+sub browser_moved {
+    my ( $ref, $column, $project ) = @_;
+    $project //= $root;
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $project );
+    return $providers{move}->( { ref => $ref, column => $column, _signed_in => 'claude' } );
+}
+
 # --- while the parent is still open ---------------------------------------
 
 is_deeply( violations(), [], 'a parent that has not claimed to be finished is nobody\'s business' );
@@ -48,7 +59,7 @@ is_deeply( violations(), [], 'a parent that has not claimed to be finished is no
 # Michael photographed exactly this: an epic in done with a ticket in backlog
 # underneath it, an hour after he had asked for that ticket. The board said the
 # work was finished when it had not begun.
-$tira->record_move(author => 'claude',  project => $root, ref => $epic->{ref}, column => 'archived' );
+browser_moved( $epic->{ref}, 'archived' );
 
 my $reported = violations();
 is( scalar @{$reported}, 1, 'a finished parent with a live child is reported' );
@@ -58,7 +69,7 @@ like( $reported->[0]{detail}, qr/\Q$child->{ref}\E/,
 
 # --- the child settles ----------------------------------------------------
 
-$tira->record_move(author => 'claude',  project => $root, ref => $child->{ref}, column => 'archived' );
+browser_moved( $child->{ref}, 'archived' );
 is_deeply( violations(), [], 'and it stops the moment the child is finished too' );
 
 # --- a discarded child is settled -----------------------------------------
@@ -84,7 +95,7 @@ is_deeply( violations(), [], 'and discarding that child settles it, because a de
     my $sow = $tira->create_record( project => $root, type => 'sow', title => 'The statement of work' );
     $tira->hierarchy_link( project => $root, parent => $sow->{ref}, child => $epic->{ref} );
     $tira->record_move(author => 'claude',  project => $root, ref => $epic->{ref}, column => 'doing' );
-    $tira->record_move(author => 'claude',  project => $root, ref => $sow->{ref}, column => 'archived' );
+    browser_moved( $sow->{ref}, 'archived' );
 
     my ($above_epics) = grep { $_->{ref} eq $sow->{ref} } @{ violations() };
     ok( $above_epics, 'a statement of work finished above an open epic is reported' );
@@ -101,13 +112,13 @@ is_deeply( violations(), [], 'and discarding that child settles it, because a de
     my $parent_ticket = $tira->create_record( project => $root, type => 'ticket', title => 'A ticket with work under it' );
     my $sub = $tira->create_record( project => $root, type => 'ticket', title => 'A sub-ticket' );
     $tira->subitem_link( project => $root, parent => $parent_ticket->{ref}, child => $sub->{ref} );
-    $tira->record_move(author => 'claude',  project => $root, ref => $parent_ticket->{ref}, column => 'archived' );
+    browser_moved( $parent_ticket->{ref}, 'archived' );
 
     my ($above_sub) = grep { $_->{ref} eq $parent_ticket->{ref} } @{ violations() };
     ok( $above_sub, 'a ticket finished above an open sub-ticket is reported' );
     like( $above_sub->{detail}, qr/\Q$sub->{ref}\E/, 'naming the sub-ticket' );
 
-    $tira->record_move(author => 'claude',  project => $root, ref => $sub->{ref}, column => 'archived' );
+    browser_moved( $sub->{ref}, 'archived' );
     is_deeply( [ grep { $_->{ref} eq $parent_ticket->{ref} } @{ violations() } ], [],
         'and silent once the sub-ticket is finished too' );
 }

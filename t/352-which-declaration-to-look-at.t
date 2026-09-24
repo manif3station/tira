@@ -18,6 +18,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $now  = '2026-08-23T09:00:00Z';
@@ -29,6 +30,16 @@ $tira->project_new(
     sow_prefix => 'LGS', epic_prefix => 'LGE', ticket_prefix => 'LGT',
 );
 my $store = File::Spec->catdir( $tmp, 'police' );
+
+# Fixture repositioning through the real dashboard move path (TKT-1144/
+# TKT-1145: record_move itself now enforces the column chain for every
+# other caller), for setup moves that skip straight past an intermediate
+# column - not what this file is testing.
+sub browser_moved {
+    my ( $ref, $column ) = @_;
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    return $providers{move}->( { ref => $ref, column => $column, type => 'ticket', _signed_in => 'claude' } );
+}
 
 # --- one rule, declared twice, --ref-scoped to two different cards ----------
 #
@@ -44,7 +55,7 @@ my $stuck_in_implement = $tira->create_record( project => $root, type => 'ticket
 $tira->record_move( author => 'claude', project => $root, ref => $stuck_in_implement->{ref}, column => 'implement' );
 my $stuck_in_verify = $tira->create_record( project => $root, type => 'ticket',
     title => 'Stuck in verify' );
-$tira->record_move( author => 'claude', project => $root, ref => $stuck_in_verify->{ref}, column => 'verify' );
+browser_moved( $stuck_in_verify->{ref}, 'verify' );
 
 my $on_implement = $tira->policy_add( project => $root, rule => 'card-duration',
     ref => $stuck_in_implement->{ref}, column => 'implement', age => '10m', action => 'bridge-reminder' );

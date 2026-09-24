@@ -45,6 +45,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
 
@@ -64,7 +65,10 @@ $tira->policy_add( project => $root, rule => 'column-skipped',
 
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Damaged, and skipping verify' )->{ref};
-$tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'verify' );
+{
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    $providers{move}->( { ref => $card, column => 'verify', type => 'ticket', _signed_in => 'claude' } );
+}
 
 my $journal = File::Spec->catfile( $root, '.tira', 'history', "$card.jsonl" );
 open my $damage, '>>:raw', $journal or die $!;

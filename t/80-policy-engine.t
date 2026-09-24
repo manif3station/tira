@@ -9,6 +9,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $now = '2026-08-11T09:00:00Z';
@@ -25,6 +26,16 @@ $tira->project_new(
 sub violations {
     my (%args) = @_;
     return $tira->policy_evaluate( project => $root, %args );
+}
+
+# Routed through the real dashboard move path (TKT-1144/TKT-1145: record_move
+# itself now enforces the column chain for every other caller) - these skip
+# straight to 'done', which is the deliberate premise of the rules being
+# tested (gate-missing, card-unlinked), not the chain gate itself.
+sub browser_moved {
+    my ( $ref, $column ) = @_;
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    return $providers{move}->( { ref => $ref, column => $column, type => 'ticket', _signed_in => 'claude' } );
 }
 
 sub fired {
@@ -282,7 +293,7 @@ is( scalar( grep { $_->{ref} eq $listless->{ref} } fired('checklist-idle') ), 0,
 $tira->policy_add( project => $root, rule => 'gate-missing', column => 'done',
     action => 'bridge-reminder' );
 my $shipped = card( title => 'Straight to done' );
-$tira->record_move(author => 'claude',  project => $root, ref => $shipped->{ref}, column => 'done' );
+browser_moved( $shipped->{ref}, 'done' );
 my @ungated = grep { $_->{ref} eq $shipped->{ref} } fired('gate-missing');
 is( scalar @ungated, 1, 'a card in the final column with no gate recorded is reported' );
 like( $ungated[0]{detail}, qr/no gate recorded/, 'saying so plainly' );
@@ -345,7 +356,7 @@ is( scalar( grep { $_->{ref} eq $shipped->{ref} } fired('gate-missing') ), 0,
     ok( scalar( grep { $_->{ref} eq $shipped_early->{ref} } fired('card-unlinked') ),
         'a live card without the link is still reported' );
     $tira->column_roles_set( project => $root, type => 'ticket', roles => { done => 'done' } );
-    $tira->record_move(author => 'claude',  project => $root, ref => $shipped_early->{ref}, column => 'done' );
+    browser_moved( $shipped_early->{ref}, 'done' );
     is( scalar( grep { $_->{ref} eq $shipped_early->{ref} } fired('card-unlinked') ), 0,
         'and once it is done, it is left alone - which the board says, rather than the rule guessing' );
 }

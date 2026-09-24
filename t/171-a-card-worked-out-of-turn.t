@@ -28,6 +28,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub {'2026-08-14T20:00:00Z'} );
@@ -192,7 +193,10 @@ like( $found->[0]{detail}, qr/\b5\b/, 'and saying what priority was passed over'
 
     my $finished = $tira->create_record( project => $ended, type => 'ticket',
         title => 'The most urgent thing we ever did, and it is done', priority => 5 );
-    $tira->record_move(author => 'claude',  project => $ended, ref => $finished->{ref}, column => 'shipped' );
+    {
+        my %providers = Tira::CLI::browser_providers( tira => $tira, project => $ended );
+        $providers{move}->( { ref => $finished->{ref}, column => 'shipped', type => 'ticket', _signed_in => 'claude' } );
+    }
 
     my $doing = $tira->create_record( project => $ended, type => 'ticket',
         title => 'Being worked now', priority => 2 );

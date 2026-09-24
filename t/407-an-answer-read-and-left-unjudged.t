@@ -57,6 +57,19 @@ $tira->record_move(
     column  => 'implement', author => 'ada',
 );
 
+# Fixture repositioning through the real dashboard move path (TKT-1144/
+# TKT-1145: record_move itself now checks, via caller(), that it is
+# genuinely being called from Tira::CLI::Browser's own source) - used only
+# where a bare direct record_move call would now be refused by the very
+# gates this file is testing (e.g. re-forwarding a card that still carries
+# the unjudged answer under test, purely to reset position for the next
+# assertion, not itself part of what is being asserted).
+sub browser_moved {
+    my ( $ref, $column ) = @_;
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    return $providers{move}->( { ref => $ref, column => $column, type => 'ticket', _signed_in => 'ada' } );
+}
+
 my $question = $tira->question_add(
     project => $root, ref => $card->{ref}, author => 'ada',
     text    => 'Which way should this go?', reason => 'because it changes the shape',
@@ -166,10 +179,7 @@ my $retreated = $tira->record_show( project => $root, type => 'ticket', ref => $
 is( $retreated->{column}, 'backlog',
     'a card carrying an unjudged answer can still be sent BACKWARD - the answer may be what it is retreating to reconsider' );
 
-$tira->record_move(
-    project => $root, type => 'ticket', ref => $card->{ref},
-    column  => 'implement', author => 'ada',
-);
+browser_moved( $card->{ref}, 'implement' );
 
 # --- reading it is not judging it --------------------------------------------
 #
@@ -301,9 +311,12 @@ is( $third_card->{column}, 'done',
         id => $question->{id}, author => 'ada', text => 'The second.' );
 
     # Carried forward a column WITHOUT judging it. The move into verify is not
-    # what is being tested - it is the setup for the one that follows.
-    $tira->record_move( project => $root, type => 'ticket', ref => $card->{ref},
-        column => 'verify', author => 'ada' );
+    # what is being tested - it is the setup for the one that follows, so it
+    # goes through the real dashboard move path (TKT-1144/TKT-1145) rather
+    # than a bare direct record_move call, which record_move's own gate would
+    # now (correctly) refuse.
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    $providers{move}->( { ref => $card->{ref}, column => 'verify', type => 'ticket', _signed_in => 'ada' } );
     is( $tira->record_show( project => $root, type => 'ticket', ref => $card->{ref} )->{column},
         'verify', 'the card reached a later column with the answer still unjudged' );
 

@@ -9,6 +9,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $now = '2026-08-11T09:00:00Z';
@@ -30,7 +31,14 @@ is_deeply( $tira->column_roles( project => $root, type => 'ticket' ), {},
     'a board with no roles declared has none, rather than being given defaults' );
 
 my $bare = $tira->create_record( project => $root, type => 'ticket', title => 'Nothing declared' );
-$tira->record_move(author => 'claude',  project => $root, ref => $bare->{ref}, column => 'doing' );
+
+# Routed through the real dashboard move path (TKT-1144/TKT-1145: record_move
+# itself now enforces the column chain for every other caller) - this skips
+# straight past 'shaping', not what this file is testing.
+{
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    $providers{move}->( { ref => $bare->{ref}, column => 'doing', type => 'ticket', _signed_in => 'claude' } );
+}
 $tira->policy_add( project => $root, rule => 'card-full-details',
     enter => 'doing', action => 'bridge-reminder' );
 is( scalar( grep { $_->{rule} eq 'card-full-details' }

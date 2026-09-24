@@ -34,6 +34,7 @@ use lib 'lib';
 use lib 't/lib';
 use Suite;
 use Tira;
+use Tira::CLI;
 
 sub names {
     my ( $tira, $root ) = @_;
@@ -153,9 +154,15 @@ $tira2->project_new(
     sow_prefix => 'CHS', epic_prefix => 'CHE', ticket_prefix => 'CHT',
 );
 my %card_in;
+my %chain_providers = Tira::CLI::browser_providers( tira => $tira2, project => $root2 );
 for my $col (qw(a b c)) {
     my $card = $tira2->create_record( project => $root2, type => 'ticket', title => "Card in $col" );
-    $tira2->record_move( author => 'claude', project => $root2, ref => $card->{ref}, column => $col );
+
+    # Routed through the real dashboard move path (TKT-1144/TKT-1145:
+    # record_move itself now enforces the column chain for every other
+    # caller) - each card jumps straight to its own fixture position, not
+    # what this file is testing.
+    $chain_providers{move}->( { ref => $card->{ref}, column => $col, type => 'ticket', _signed_in => 'claude' } );
     $card_in{$col} = $card->{ref};
 }
 

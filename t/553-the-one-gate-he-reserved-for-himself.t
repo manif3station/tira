@@ -31,6 +31,7 @@ use Test::More;
 use lib 'lib', 't/lib';
 use Run qw(run_capturing);
 use Tira;
+use Tira::CLI;
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $root = File::Spec->catdir( $tmp, 'board' );
@@ -80,8 +81,18 @@ sub complete_card {
     return $card;
 }
 
+# Routed through the real dashboard move path (TKT-1144/TKT-1145: record_move
+# itself now enforces the column chain for every other caller), for moves
+# that jump straight to an arbitrary column to set up fixtures - not what
+# this file is testing.
+sub browser_moved {
+    my ( $ref, $column ) = @_;
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    return $providers{move}->( { ref => $ref, column => $column, type => 'ticket', _signed_in => 'claude' } );
+}
+
 my $waiting = complete_card('Waiting for Michael to say it can ship');
-$tira->record_move( author => 'claude', project => $root, ref => $waiting->{ref}, column => 'pending-push' );
+browser_moved( $waiting->{ref}, 'pending-push' );
 
 my $tool  = File::Spec->rel2abs( File::Spec->catfile( qw(.developer-dashboard skills card cli holes) ) );
 my $skill = File::Spec->rel2abs('.');

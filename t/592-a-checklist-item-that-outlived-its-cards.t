@@ -18,6 +18,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp   = tempdir( CLEANUP => 1 );
 my $store = File::Spec->catdir( $tmp, 'store' );
@@ -38,6 +39,15 @@ sub findings {
     return [ grep { ( $_->{rule} // '' ) eq 'checklist-item-terminal' } @{ $pass->{violations} } ];
 }
 
+# Routed through the real dashboard move path (TKT-1144/TKT-1145: record_move
+# itself now enforces the column chain for every other caller) - these skip
+# straight to 'done', not what this file is testing.
+sub browser_moved {
+    my ( $ref, $column ) = @_;
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    return $providers{move}->( { ref => $ref, column => $column, type => 'ticket', _signed_in => 'claude' } );
+}
+
 my $epic = $tira->create_record( project => $root, type => 'epic', title => 'Outlived epic' );
 my $one  = $tira->create_record( project => $root, type => 'ticket', title => 'Card one' );
 my $two  = $tira->create_record( project => $root, type => 'ticket', title => 'Card two' );
@@ -55,7 +65,7 @@ is( scalar @{ findings() }, 0, 'nothing reported while the named card is still o
 
 # --- one card reaches done, its own item fires -------------------------------
 
-$tira->record_move( author => 'claude', project => $root, ref => $one->{ref}, column => 'done' );
+browser_moved( $one->{ref}, 'done' );
 
 my $after_one = findings();
 is( scalar @{$after_one}, 1, 'the item naming only the finished card is reported' );
@@ -68,7 +78,7 @@ like( $after_one->[0]{detail}, qr/done/, "and the card's column" );
 my @two_card = grep { $_->{detail} =~ /CHK-002/ } @{$after_one};
 is( scalar @two_card, 0, 'the item naming two cards is not reported while one is still open' );
 
-$tira->record_move( author => 'claude', project => $root, ref => $two->{ref}, column => 'done' );
+browser_moved( $two->{ref}, 'done' );
 my $after_two = findings();
 my @two_card_now = grep { $_->{detail} =~ /CHK-002/ } @{$after_two};
 is( scalar @two_card_now, 1, 'and is reported once both are terminal' );

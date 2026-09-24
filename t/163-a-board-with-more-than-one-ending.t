@@ -36,6 +36,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub {'2026-08-14T14:00:00Z'} );
@@ -51,7 +52,13 @@ $tira->project_new(
 sub card_in {
     my ( $title, $column ) = @_;
     my $card = $tira->create_record( project => $root, type => 'ticket', title => $title );
-    $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => $column );
+
+    # Routed through the real dashboard move path (TKT-1144/TKT-1145:
+    # record_move itself now enforces the column chain for every other
+    # caller) - this helper jumps straight to an arbitrary column to set up
+    # fixtures, not to test the chain gate.
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    $providers{move}->( { ref => $card->{ref}, column => $column, type => 'ticket', _signed_in => 'claude' } );
     return $card->{ref};
 }
 
@@ -109,7 +116,10 @@ my $plain_store = File::Spec->catdir( $tmp, 'police-ordinary' );
 my $held = $tira->create_record( project => $ordinary, type => 'ticket', title => 'Being worked' );
 $tira->record_move(author => 'claude',  project => $ordinary, ref => $held->{ref}, column => 'implement' );
 my $finished = $tira->create_record( project => $ordinary, type => 'ticket', title => 'Finished' );
-$tira->record_move(author => 'claude',  project => $ordinary, ref => $finished->{ref}, column => 'done' );
+{
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $ordinary );
+    $providers{move}->( { ref => $finished->{ref}, column => 'done', type => 'ticket', _signed_in => 'claude' } );
+}
 $tira->policy_add( project => $ordinary, rule => 'card-unassigned', action => 'bridge-reminder' );
 
 my $pass = $tira->police_pass( project => $ordinary, store => $plain_store, world => {} );
@@ -126,7 +136,10 @@ is_deeply( \@plain, [ $held->{ref} ],
 $tira->column_add( project => $root, type => 'epic', name => 'epic-done' );
 $tira->column_update( project => $root, type => 'epic', name => 'epic-done', terminal => 1 );
 my $epic = $tira->create_record( project => $root, type => 'epic', title => 'A finished epic' );
-$tira->record_move(author => 'claude',  project => $root, ref => $epic->{ref}, column => 'epic-done' );
+{
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    $providers{move}->( { ref => $epic->{ref}, column => 'epic-done', type => 'epic', _signed_in => 'claude' } );
+}
 ok( !scalar( grep { $_ eq $epic->{ref} } @{ unassigned() } ),
     'an epic in its own board\'s ending is not reported against the ticket board\'s columns' );
 

@@ -32,6 +32,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub {'2026-08-13T16:00:00Z'} );
@@ -96,7 +97,15 @@ is( scalar @{ unassigned() }, 0, 'nor one that was set aside' );
 
 $tira->column_add( project => $root, type => 'ticket', name => 'review' );
 my $later = $tira->create_record( project => $root, type => 'ticket', title => 'In a column nobody declared' );
-$tira->record_move(author => 'claude',  project => $root, ref => $later->{ref}, column => 'review' );
+
+# 'review' was added at the end of the column order (after 'done'), so a
+# direct backlog -> review move now skips everything before it - routed
+# through the real dashboard move path (TKT-1144/TKT-1145) since this is
+# fixture setup, not a test of the chain gate.
+{
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    $providers{move}->( { ref => $later->{ref}, column => 'review', type => 'ticket', _signed_in => 'claude' } );
+}
 my $covered = unassigned();
 is( scalar @{$covered}, 1, 'a column added after the policy was declared is covered' );
 is( $covered->[0]{ref}, $later->{ref}, 'and it is the card in it' );

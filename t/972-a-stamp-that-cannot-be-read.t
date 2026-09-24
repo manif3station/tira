@@ -41,6 +41,7 @@ sub record_path {
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp   = tempdir( CLEANUP => 1 );
 my $now   = '2026-09-17T10:00:00Z';
@@ -151,8 +152,13 @@ ok( scalar( grep { /^checklist-idle \Q$bad\E$/ } @said2 ),
     my $third = $tira->create_record( project => $root, type => 'ticket',
         title => 'Unreadable history, bad stamp too', description => 'x',
         author => 'claude' )->{ref};
-    $tira->record_move( project => $root, ref => $third, column => 'done',
-        author => 'claude' );
+    # Routed through the real dashboard move path (TKT-1144/TKT-1145:
+    # record_move itself now enforces the column chain for every other
+    # caller) - the skip is the deliberate premise here.
+    {
+        my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+        $providers{move}->( { ref => $third, column => 'done', type => 'ticket', _signed_in => 'claude' } );
+    }
 
     my $third_path = record_path( $root, $third );
     die "could not find $third on disk" if !defined $third_path;

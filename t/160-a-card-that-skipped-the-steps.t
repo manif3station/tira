@@ -33,6 +33,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $now = '2026-08-14T13:00:00Z';
@@ -49,9 +50,18 @@ my $store = File::Spec->catdir( $tmp, 'police' );
 sub walk {
     my ( $title, @columns ) = @_;
     my $card = $tira->create_record( project => $root, type => 'ticket', title => $title );
+
+    # Routed through the real dashboard move path (TKT-1144/TKT-1145:
+    # record_move itself now enforces the column chain for every other
+    # caller) - the deliberate legitimate-shortcut premise this file is
+    # about (an agent taking two steps instead of eight) is exactly the
+    # TKT-426 exemption's own case: a human on the dashboard is not an
+    # agent skipping a gate, and this rule's whole point is to catch what
+    # slips through that one sanctioned path.
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
     for my $column (@columns) {
         $now =~ s/T(\d\d):(\d\d)/sprintf 'T%02d:%02d', $1, $2 + 1/e;
-        $tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => $column );
+        $providers{move}->( { ref => $card->{ref}, column => $column, type => 'ticket', _signed_in => 'claude' } );
     }
     return $card->{ref};
 }

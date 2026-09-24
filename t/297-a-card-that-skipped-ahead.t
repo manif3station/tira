@@ -42,6 +42,17 @@ sub cli {
     return ( $status, $out, $err );
 }
 
+# The browser move: ungated, exactly as TKT-426/452 leave it - routed through
+# the real dashboard move path (TKT-1144/TKT-1145: record_move itself now
+# checks, via caller(), that it is genuinely being called from
+# Tira::CLI::Browser's own source, so a test can no longer fake this with a
+# bare direct call).
+sub browser_moved {
+    my ( $ref, $column ) = @_;
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    return $providers{move}->( { ref => $ref, column => $column, type => 'ticket', _signed_in => 'claude' } );
+}
+
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Follows the chain' );
 
 # --- the owner's own example: backlog straight to code, skipping planning and doc
@@ -73,15 +84,11 @@ is( $status, 0, 'a backward move (redoing work) succeeds - only forward skips re
 ( $status, $out, $err ) = cli( '--ref', $card->{ref}, '--column', 'discard' );
 is( $status, 0, 'moving to discard succeeds from any column, skip or not' );
 
-# --- the browser dashboard's own path is unrestricted: a direct engine call
-# (bypassing Tira::CLI entirely, the way browser_providers' move coderef does)
-# is not subject to the chain check at all.
+# --- the browser dashboard's own path is unrestricted: a move through the
+# real Tira::CLI::Browser move provider is not subject to the chain check.
 my $unrestricted = $tira->create_record( project => $root, type => 'ticket', title => 'Dashboard-moved' );
-my $direct = eval {
-    $tira->record_move(author => 'claude',  project => $root, ref => $unrestricted->{ref}, column => 'done' );
-    1;
-};
-ok( $direct, 'a direct record_move call - the dashboard\'s own path - is not restricted by the chain' );
+my $direct = eval { browser_moved( $unrestricted->{ref}, 'done' ); 1 };
+ok( $direct, 'a browser dashboard move is not restricted by the chain' ) or diag($@);
 is( $tira->record_show( project => $root, ref => $unrestricted->{ref} )->{column}, 'done',
     'and the card actually reached the skipped-ahead column' );
 

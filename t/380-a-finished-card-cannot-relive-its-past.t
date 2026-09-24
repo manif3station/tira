@@ -19,6 +19,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $now = '2026-08-14T13:00:00Z';
@@ -38,9 +39,16 @@ sub skipped {
 }
 
 my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Finished the short way' );
+
+# The legitimate shortcut this file is about: routed through the real
+# dashboard move path (TKT-1144/TKT-1145: record_move itself now refuses a
+# column skip for every OTHER caller) - a human on the dashboard taking a
+# shortcut is exactly the "legitimate shortcut nobody can undo" case this
+# test's own comment describes.
+my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
 for my $column (qw(implement done)) {
     $now =~ s/T(\d\d):(\d\d)/sprintf 'T%02d:%02d', $1, $2 + 1/e;
-    $tira->record_move( author => 'claude', project => $root, ref => $card->{ref}, column => $column );
+    $providers{move}->( { ref => $card->{ref}, column => $column, type => 'ticket', _signed_in => 'claude' } );
 }
 
 $tira->policy_add( project => $root, rule => 'column-skipped', enter => 'done',
@@ -71,7 +79,7 @@ is_deeply( [ map { $_->{after} } @moves ], [ 'backlog', 'implement', 'done' ],
 my $noisy = $tira->create_record( project => $root, type => 'ticket', title => 'Also finished the short way' );
 for my $column (qw(implement done)) {
     $now =~ s/T(\d\d):(\d\d)/sprintf 'T%02d:%02d', $1, $2 + 1/e;
-    $tira->record_move( author => 'claude', project => $root, ref => $noisy->{ref}, column => $column );
+    $providers{move}->( { ref => $noisy->{ref}, column => $column, type => 'ticket', _signed_in => 'claude' } );
 }
 my @still = grep { $_->{ref} eq $noisy->{ref} } @{ skipped() };
 is( scalar @still, 1, 'a card with the same shortcut and no comment is still reported' );

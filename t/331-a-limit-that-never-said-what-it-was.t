@@ -20,6 +20,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp   = tempdir( CLEANUP => 1 );
 my $now   = '2026-08-17T09:00:00Z';
@@ -39,13 +40,23 @@ sub still {
           grep { ( $_->{rule} // '' ) eq 'card-still' } @{ $pass->{violations} } };
 }
 
+# Fixture repositioning through the real dashboard move path (TKT-1144/
+# TKT-1145: record_move itself now enforces the column chain for every
+# other caller), since these moves skip straight past 'unit-test' - not
+# what this file is testing.
+sub browser_moved {
+    my ( $ref, $column ) = @_;
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    return $providers{move}->( { ref => $ref, column => $column, type => 'ticket', _signed_in => 'claude' } );
+}
+
 # --- a column's own notify_after governs, and the finding names it ------------
 
 $tira->policy_add( project => $root, rule => 'card-still', action => 'bridge-reminder', age => '6h' );
 $tira->column_update( project => $root, type => 'ticket', name => 'unit-test', notify_after => 120 );
 
 my $watched = $tira->create_record( project => $root, type => 'ticket', title => 'Sits in unit-test' );
-$tira->record_move( author => 'claude', project => $root, ref => $watched->{ref}, column => 'unit-test' );
+browser_moved( $watched->{ref}, 'unit-test' );
 
 {
     $now = '2026-08-17T11:01:00Z';    # 2h01m later - past the column's 120m, well under the policy's 6h

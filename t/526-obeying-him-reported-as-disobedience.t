@@ -44,6 +44,7 @@ use Test::More;
 use lib 'lib';
 use lib 't/lib';
 use Tira;
+use Tira::CLI;
 
 # Two queue columns named deliberately. Naming any queue column stops the
 # fallback to protected non-ending ones, so backlog has to be named too or it
@@ -71,6 +72,16 @@ sub board {
     $tira->policy_add( project => $root, rule => 'priority-skipped',
         action => 'log-only', author => 'claude' );
     return ( $tira, $root );
+}
+
+# Routed through the real dashboard move path (TKT-1144/TKT-1145: record_move
+# itself now enforces the column chain for every other caller), for a
+# straight-from-backlog grab that skips the queue column - the priority-skip
+# scenario this file is about, not the chain gate.
+sub browser_moved {
+    my ( $tira, $root, $ref, $column ) = @_;
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    return $providers{move}->( { ref => $ref, column => $column, type => 'ticket', _signed_in => 'claude' } );
 }
 
 sub skipped_refs {
@@ -133,8 +144,7 @@ sub skipped_refs {
         title => 'Priority 1, taken anyway', priority => 1 );
 
     # Straight from the backlog. He never touched it.
-    $tira->record_move( project => $root, type => 'ticket', ref => $taken->{ref},
-        column => 'implement', author => 'claude' );
+    browser_moved( $tira, $root, $taken->{ref}, 'implement' );
 
     is_deeply( skipped_refs( $tira, $root ), [ $taken->{ref} ],
         'a card taken out of turn from the BACKLOG is still reported - the '

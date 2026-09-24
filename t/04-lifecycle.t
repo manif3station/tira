@@ -9,6 +9,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $clock = 0;
@@ -56,7 +57,14 @@ $ticket = $tira->record_update( author => 'ada',
 is( $ticket->{title}, 'Updated', 'record scalar can be updated' );
 is_deeply( $ticket->{acceptance_criteria}, [ 'Works', 'Is tested' ], 'record array can be updated' );
 
-$ticket = $tira->record_move(author => 'ada',  project => $root, ref => $ticket->{ref}, column => 'in-progress' );
+# Routed through the real dashboard move path (TKT-1144/TKT-1145: record_move
+# itself now enforces the column chain for every other caller) rather than a
+# bare direct call, since this assertion is about moving to a named custom
+# column at all, not about the chain gate - the reorder above put an
+# intermediate column ('verification') between backlog and in-progress.
+my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+$providers{move}->( { ref => $ticket->{ref}, column => 'in-progress', type => 'ticket', _signed_in => 'ada' } );
+$ticket = $tira->record_show( project => $root, ref => $ticket->{ref} );
 is( $ticket->{column}, 'in-progress', 'record can move to a custom column' );
 is( scalar @{ $tira->record_list( project => $root, type => 'ticket', column => 'in-progress' ) }, 1, 'record list filters column' );
 $tira->record_discard(author => 'ada',  project => $root, ref => $ticket->{ref} );

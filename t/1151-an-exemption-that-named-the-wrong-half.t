@@ -43,8 +43,12 @@ $tira->record_update(
     required_exempt => [ $item->{id} ], exempt_reason => ['covered elsewhere'],
 );
 
-# The browser move: ungated, past both backlog and tests-red.
-$tira->record_move( project => $root, ref => $card->{ref}, column => 'implement', author => 'claude' );
+# The browser move: ungated, past both backlog and tests-red - genuinely
+# routed through Tira::CLI::Browser's own move path (TKT-1144/TKT-1145:
+# record_move itself now enforces both the required-action gate and the
+# column-chain gate for every other caller).
+my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+$providers{move}->( { ref => $card->{ref}, column => 'implement', type => 'ticket', _signed_in => 'claude' } );
 
 my $pass = $tira->police_pass(
     project => $root, store => File::Spec->catdir( $tmp, 'store' ), world => {},
@@ -66,7 +70,7 @@ is( scalar @{$violations}, 0,
         project => $root, ref => $card2->{ref}, type => 'ticket', author => 'claude',
         required_exempt => [ $item2->{item} ], exempt_reason => ['still works by text too'],
     );
-    $tira->record_move( project => $root, ref => $card2->{ref}, column => 'implement', author => 'claude' );
+    $providers{move}->( { ref => $card2->{ref}, column => 'implement', type => 'ticket', _signed_in => 'claude' } );
 
     my $pass2 = $tira->police_pass(
         project => $root, store => File::Spec->catdir( $tmp, 'store2' ), world => {},
@@ -88,7 +92,7 @@ is( scalar @{$violations}, 0,
         project => $root, ref => $card3->{ref}, type => 'ticket', author => 'claude',
         required_exempt => [ $entry_item->{id} ], exempt_reason => ['exempted by id at the entry gate too'],
     );
-    my $moved = eval { $tira->record_move( project => $root, ref => $card3->{ref}, column => 'implement', author => 'claude' ); 1 };
+    my $moved = eval { $providers{move}->( { ref => $card3->{ref}, column => 'implement', type => 'ticket', _signed_in => 'claude' } ); 1 };
     ok( $moved, 'the entry gate (_column_required_action_violation) also honours an exemption by REQ id' )
       or diag("move refused: $@");
 }

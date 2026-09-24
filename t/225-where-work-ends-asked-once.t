@@ -26,6 +26,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp   = tempdir( CLEANUP => 1 );
 my $store = File::Spec->catdir( $tmp, 'store' );
@@ -44,7 +45,10 @@ $tira->policy_add( project => $root, rule => 'card-unassigned', action => 'bridg
 # card-unassigned has something to say about it.
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Nobody is on this' );
-$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'shipped' );
+{
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    $providers{move}->( { ref => $card->{ref}, column => 'shipped', type => 'ticket', _signed_in => 'claude' } );
+}
 
 sub speaks_about {
     my ($rule) = @_;

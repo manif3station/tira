@@ -20,6 +20,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub { '2026-08-24T15:00:00Z' } );
@@ -38,10 +39,20 @@ sub reported {
     return [ grep { $_->{rule} eq 'discard-with-open-questions' } @{ $pass->{violations} } ];
 }
 
+# Fixture repositioning through the real dashboard move path (TKT-1144/
+# TKT-1145: record_move itself now enforces the column chain for every
+# other caller), for moves that skip straight to 'done' - not what this
+# file is testing.
+sub browser_moved {
+    my ( $ref, $column ) = @_;
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    return $providers{move}->( { ref => $ref, column => $column, type => 'ticket', _signed_in => 'claude' } );
+}
+
 # --- a card that reached done says so, not that it was set aside ------------
 my $finished = $tira->create_record( project => $root, type => 'ticket', title => 'Finished with a loose end' );
 $tira->question_add( project => $root, ref => $finished->{ref}, author => 'claude', text => 'Still relevant?' );
-$tira->record_move( author => 'claude', project => $root, ref => $finished->{ref}, column => 'done' );
+browser_moved( $finished->{ref}, 'done' );
 
 my @done_found = @{ reported() };
 is( scalar @done_found, 1, 'a card that reached done with an open question is reported' );

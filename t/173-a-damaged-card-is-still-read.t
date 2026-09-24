@@ -36,6 +36,13 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
+
+sub browser_moved {
+    my ( $tira, $root, $ref, $column ) = @_;
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    return $providers{move}->( { ref => $ref, column => $column, type => 'ticket', _signed_in => 'claude' } );
+}
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub {'2026-08-14T22:00:00Z'} );
@@ -56,7 +63,7 @@ my $card = $tira->create_record( project => $root, type => 'ticket',
 # Straight to verify without passing through implement, which is what
 # column-skipped exists to report. It reads history to find that out, so it is
 # the rule that meets the damage.
-$tira->record_move(author => 'claude',  project => $root, ref => $card, column => 'verify' );
+browser_moved( $tira, $root, $card, 'verify' );
 
 my $journal = File::Spec->catfile( $root, '.tira', 'history', "$card.jsonl" );
 open my $append, '>>:raw', $journal or die $!;
@@ -135,7 +142,7 @@ is_deeply( $pass->{unreadable}, [],
 
     my $twice = $tira->create_record( project => $both, type => 'ticket',
         title => 'Read by two rules in one pass' )->{ref};
-    $tira->record_move(author => 'claude',  project => $both, ref => $twice, column => 'verify' );
+    browser_moved( $tira, $both, $twice, 'verify' );
 
     # conversation-not-folded only opens the journal of a card with something
     # said on it, so without this the second reader never runs. Said an hour
@@ -201,7 +208,7 @@ like( $now, qr/\xd7/, 'bad byte and all - nothing was quietly rewritten' );
         enter => 'verify', require => 'implement', action => 'bridge-reminder' );
     my $ok = $tira->create_record( project => $clean, type => 'ticket',
         title => 'Nothing wrong with this one' )->{ref};
-    $tira->record_move(author => 'claude',  project => $clean, ref => $ok, column => 'verify' );
+    browser_moved( $tira, $clean, $ok, 'verify' );
 
     my $result = $tira->police_pass( project => $clean, store => $quiet,
         world => { branches => [], worktrees => [], processes => [], containers => [] } );

@@ -34,6 +34,14 @@ sub recording {
     return $path;
 }
 
+# The real, sanctioned bypass - a move made from inside Tira::CLI::Browser's
+# own source, not a caller-supplied flag.
+sub browser_moved {
+    my ( $ref, $column ) = @_;
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    return $providers{move}->( { ref => $ref, column => $column, type => 'ticket', _signed_in => 'claude' } );
+}
+
 $tira->project_new(
     name => 'Gated', dir => $root, members => ['claude'],
     columns => [ 'backlog', 'implement', 'verify', 'done' ],
@@ -153,6 +161,112 @@ $tira->project_new(
     };
     ok( $result, 'a judged answer lets a direct record_move call through' ) or diag($@);
     is( $result->{column}, 'verify', 'and the card actually moved' );
+}
+
+# --- P1 regression coverage: a backward move with an unjudged answer -------
+#
+# Codex review caught this: the original fix ran the unjudged-answer check
+# for every non-discard, non-no-op move without confirming it was forward -
+# so a card retreating with an unjudged answer (TKT-455's own design: the
+# unjudged answer may be exactly what it is retreating to reconsider) was
+# wrongly refused. Missing this case is what let that bug through.
+
+{
+    my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Retreats with an unjudged answer', author => 'claude' );
+    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement', author => 'claude' );
+    $tira->record_move( project => $root, ref => $card->{ref}, column => 'verify', author => 'claude' );
+    my $question = $tira->question_add(
+        project => $root, ref => $card->{ref}, author => 'claude',
+        text => 'Which way, retreating?', reason => 'need a decision', options => [ 'A', 'B' ], voice => recording(),
+    );
+    $tira->question_answer( project => $root, ref => $card->{ref}, author => 'claude', id => $question->{id}, text => 'A' );
+
+    my $result = eval {
+        $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement', author => 'claude' );
+    };
+    ok( $result, 'a direct record_move call sends a card carrying an unjudged answer BACKWARD without refusal' ) or diag($@);
+    is( $result->{column}, 'implement', 'and the card actually moved back' );
+}
+
+# --- the real dashboard exemption, not only a fake flag ---------------------
+#
+# Codex review: testing that a caller-supplied _dashboard_move flag does NOT
+# work is not the same as proving the real exemption DOES - both gates need
+# a genuine Tira::CLI::Browser::providers call to go through.
+
+{
+    my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Skips a column, via the dashboard', author => 'claude' );
+    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement', author => 'claude' );
+
+    my $result = eval { browser_moved( $card->{ref}, 'done' ); 1 };
+    ok( $result, 'a genuine Tira::CLI::Browser move is not restricted by the column-chain gate' ) or diag($@);
+    is( $tira->record_show( project => $root, ref => $card->{ref} )->{column}, 'done',
+        'and the card actually reached the skipped-ahead column' );
+}
+
+{
+    my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Unjudged answer, via the dashboard', author => 'claude' );
+    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement', author => 'claude' );
+    my $question = $tira->question_add(
+        project => $root, ref => $card->{ref}, author => 'claude',
+        text => 'Which way, dashboard?', reason => 'need a decision', options => [ 'A', 'B' ], voice => recording(),
+    );
+    $tira->question_answer( project => $root, ref => $card->{ref}, author => 'claude', id => $question->{id}, text => 'A' );
+
+    my $result = eval { browser_moved( $card->{ref}, 'verify' ); 1 };
+    ok( $result, 'a genuine Tira::CLI::Browser move is not restricted by the unjudged-answer gate' ) or diag($@);
+    is( $tira->record_show( project => $root, ref => $card->{ref} )->{column}, 'verify',
+        'and the card actually moved' );
+}
+
+# --- a forked column names the branches, not a single "next" ----------------
+
+{
+    # Its own board, so the fork declared on 'implement' here does not leak
+    # into the shared board's own plain sequential chain used elsewhere in
+    # this file.
+    my $fork_tmp  = tempdir( CLEANUP => 1 );
+    my $fork_tira = Tira->new;
+    my $fork_root = File::Spec->catdir( $fork_tmp, 'proj' );
+    $fork_tira->project_new(
+        name => 'Forked', dir => $fork_root, members => ['claude'],
+        columns => [ 'backlog', 'implement', 'verify', 'shortcut', 'done' ],
+        sow_prefix => 'FKS', epic_prefix => 'FKE', ticket_prefix => 'FKT',
+    );
+    $fork_tira->column_update( project => $fork_root, type => 'ticket', name => 'implement', next => [ 'verify', 'shortcut' ], author => 'claude' );
+
+    my $card = $fork_tira->create_record( project => $fork_root, type => 'ticket', title => 'At a fork', author => 'claude' );
+    $fork_tira->record_move( project => $fork_root, ref => $card->{ref}, column => 'implement', author => 'claude' );
+
+    my $result = eval {
+        $fork_tira->record_move( project => $fork_root, ref => $card->{ref}, column => 'shortcut', author => 'claude' );
+    };
+    ok( $result, 'a direct record_move call to a column named in the fork is allowed' ) or diag($@);
+    is( $result->{column}, 'shortcut', 'and the card moved to the forked destination' );
+
+    my $card2 = $fork_tira->create_record( project => $fork_root, type => 'ticket', title => 'At a fork, wrong branch', author => 'claude' );
+    $fork_tira->record_move( project => $fork_root, ref => $card2->{ref}, column => 'implement', author => 'claude' );
+    my $wrong = eval {
+        $fork_tira->record_move( project => $fork_root, ref => $card2->{ref}, column => 'done', author => 'claude' );
+    };
+    ok( !$wrong, 'a direct record_move call refuses a column not named in the fork' )
+      or diag('record_move silently succeeded - the fork was not consulted');
+    like( $@, qr/the next column should be verify or shortcut/, 'and the refusal names both branches the fork actually allows' );
+}
+
+# --- a gate already recorded for a skipped column lets the move through ----
+
+{
+    my $card = $tira->create_record( project => $root, type => 'ticket', title => 'Already gated', author => 'claude' );
+    $tira->record_move( project => $root, ref => $card->{ref}, column => 'implement', author => 'claude' );
+    $tira->gate_add( project => $root, ref => $card->{ref}, gate => 'verify',
+        result => 'pass', details => 'verified out of band', author => 'claude' );
+
+    my $result = eval {
+        $tira->record_move( project => $root, ref => $card->{ref}, column => 'done', author => 'claude' );
+    };
+    ok( $result, 'a direct record_move call skipping a column already recorded as gate-passed is allowed' ) or diag($@);
+    is( $result->{column}, 'done', 'and the card moved past the already-gated column' );
 }
 
 done_testing;

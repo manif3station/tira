@@ -42,6 +42,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub {'2026-08-14T19:00:00Z'} );
@@ -95,7 +96,10 @@ my $broken = card('A card whose journal has a bad byte in it');
 # In the column the history-reading rule watches, and damaged afterwards - the
 # move is what makes column-skipped open its journal at all, and a card it
 # never opens proves nothing.
-$tira->record_move(author => 'claude',  project => $root, ref => $broken, column => 'verify' );
+{
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    $providers{move}->( { ref => $broken, column => 'verify', type => 'ticket', _signed_in => 'claude' } );
+}
 
 # A comment on it, so conversation-not-folded has something to weigh and has to
 # open the journal to weigh it. Without this the second reader never runs and

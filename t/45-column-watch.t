@@ -54,11 +54,16 @@ my $slow = $tira->create_record( project => $root, type => 'ticket', title => 'S
 my $hidden = $tira->create_record( project => $root, type => 'ticket', title => 'Sitting in review' );
 my $fresh = $tira->create_record( project => $root, type => 'ticket', title => 'Just arrived' );
 $tick = '2026-08-08T12:05:00Z';
-$tira->record_move(author => 'claude',  project => $root, ref => $slow->{ref}, column => 'doing' );
-$tira->record_move(author => 'claude',  project => $root, ref => $hidden->{ref}, column => 'review' );
+# Routed through the real dashboard move path (TKT-1144/TKT-1145: record_move
+# itself now enforces the column chain for every other caller) - these jump
+# straight to an arbitrary column to set up staleness fixtures, not to test
+# the chain gate.
+my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+$providers{move}->( { ref => $slow->{ref}, column => 'doing', type => 'ticket', _signed_in => 'claude' } );
+$providers{move}->( { ref => $hidden->{ref}, column => 'review', type => 'ticket', _signed_in => 'claude' } );
 $tira->column_add( project => $root, type => 'ticket', name => 'checking', label => 'Checking' );
 $tick = '2026-08-08T13:00:00Z';
-$tira->record_move(author => 'claude',  project => $root, ref => $fresh->{ref}, column => 'checking' );
+$providers{move}->( { ref => $fresh->{ref}, column => 'checking', type => 'ticket', _signed_in => 'claude' } );
 
 $tick = '2026-08-08T13:10:00Z';
 my $stale = $tira->dwell_list( project => $root, stale => 1 );

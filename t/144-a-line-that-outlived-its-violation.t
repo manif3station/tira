@@ -37,6 +37,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp = tempdir( CLEANUP => 1 );
 my $now = '2026-08-14T01:00:00Z';
@@ -53,9 +54,18 @@ my $store = File::Spec->catdir( $tmp, 'police' );
 $tira->policy_add( project => $root, rule => 'card-metrics',
     enter => 'done', require => 'due_date', action => 'bridge-reminder' );
 
+# Routed through the real dashboard move path (TKT-1144/TKT-1145: record_move
+# itself now enforces the column chain for every other caller) - these skip
+# straight past 'doing', not what this file is testing.
+sub browser_moved {
+    my ( $ref, $column ) = @_;
+    my %providers = Tira::CLI::browser_providers( tira => $tira, project => $root );
+    return $providers{move}->( { ref => $ref, column => $column, type => 'ticket', _signed_in => 'claude' } );
+}
+
 my $card = $tira->create_record( project => $root, type => 'ticket',
     title => 'Finished without a date', assignee => 'ada' );
-$tira->record_move(author => 'claude',  project => $root, ref => $card->{ref}, column => 'done' );
+browser_moved( $card->{ref}, 'done' );
 
 # Exactly what the police command does: a pass, then the bridge written from
 # what the pass found. Settled violations travel the same way, because a
@@ -135,7 +145,7 @@ is( scalar( grep { /\Q$number\E/ && / \| SETTLED \| / } bridge() ), 1,
 $now = '2026-08-14T01:10:00Z';
 my $second = $tira->create_record( project => $root, type => 'ticket',
     title => 'Also finished without a date' );
-$tira->record_move(author => 'claude',  project => $root, ref => $second->{ref}, column => 'done' );
+browser_moved( $second->{ref}, 'done' );
 round();
 $now = '2026-08-14T01:11:00Z';
 round();

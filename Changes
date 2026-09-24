@@ -1,5 +1,21 @@
 Revision history for Tira
 
+5.198  2026-09-24
+    - TKT-1151: lib/Tira/Job/Schedule.pm crossed the 500-line convention
+      (516 lines) after TKT-1143's OR-trap fix added cohesive
+      cron-matching logic. job_schedule_words's own wording-formatting
+      helper cluster (_ordinal, _weekday_phrase, _monthday_phrase,
+      _about, _even_step, _and_list, and the
+      @DAY/@MONTH/%DAY_NAME/%MONTH_NAME word tables) has zero dependency
+      on the cron-parsing internals that stay in Schedule.pm, and was
+      lifted into a new lib/Tira/Job/ScheduleWords.pm - the same
+      mechanical-lift shape TKT-1044 itself used. job_schedule_words
+      itself stays in Schedule.pm (needs _cron_field_values/@CRON_FIELDS)
+      and calls the moved helpers by fully-qualified name. No behaviour
+      change - Schedule.pm is now 419 lines. t/524's own now-stale
+      exemption entry for Schedule.pm (from the original overage) was
+      also removed.
+
 5.197  2026-09-24
     - TKT-1147: lib/Tira.pm carried two independently-maintained,
       byte-identical implementations of the same exempt-matching

@@ -13,10 +13,16 @@ Revision history for Tira
       card-duration policy still reports against the same policy the
       outer loop is on, rather than whichever policy_resolve would pick
       as the overall winner) and the record's ref through to
-      _policy_older_than for TKT-972's stamp-unreadable tracking, which
-      the helper's own prior call had omitted. No behavior change for any
+      _policy_older_than, but ONLY for a card that is both resting-clear
+      and on the watched column - the same gate the old inline branch's
+      own short-circuit applied before it ever touched the age
+      comparison. Codex review caught the first draft passing the ref
+      unconditionally, which would have recorded TKT-972's
+      stamp-unreadable diagnostic for a resting/off-watched card whose
+      dwell stamp happens to be unparseable - a card this rule never
+      measured at all before. No behavior change for any
       currently-declared policy on this board; existing card-duration
-      test coverage (31 files, 653 tests) passes unchanged.
+      test coverage (32 files, 663 tests) passes unchanged.
 
 5.200  2026-09-24
     - TKT-1155: _touch_pattern_matches's slash-free (basename-only)

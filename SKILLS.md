@@ -546,6 +546,20 @@ remaining defect.
 | `--assignee ID|""` | no | optional | replace/clear | Active project person. |
 | `--reporter ID|""` | no | optional | replace/clear | Active project person. |
 | `--label TEXT` | yes | optional | append | Case-insensitive unique label. |
+
+**Since 5.206 (TKT-733)**, `tira.TYPE.list --label TEXT` actually filters -
+a card matches if it carries ANY of the given values (OR semantics,
+matching `--label`'s own repeatable declaration). Before this, `--label`
+was accepted at the option-parsing layer and never read by `record_list`
+at all: every call, whatever label was given, returned the entire
+unfiltered board. A label matching no card proved it - nothing could
+possibly match, and the full count came back anyway, which fails OPEN
+(a large, plausible number) rather than closed (an obvious zero that
+invites suspicion) - the more dangerous direction of failure, since a
+wrong-but-plausible answer is one somebody acts on. The `--refs-only`
+fast path (filename-only, no record content ever read) also now excludes
+a `--label` call, since it cannot see labels at all and used to bypass
+the filter entirely.
 | `--due-date DATETIME|""` | no | optional | replace/clear | Zoned ISO 8601 date-time. |
 | `--start-date DATETIME|""` | no | optional | replace/clear | Zoned ISO 8601 date-time. |
 | `--sdlc-gate TEXT|""` | no | optional | replace/clear | Free-text SDLC state. |
@@ -822,7 +836,7 @@ These symmetric forms are **Implemented.** for each `TYPE`:
 
 ```text
 tira.TYPE.show (--ref REF ...|--refs LIST) [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--brief] [--truncate N|--full] [-o FORMAT]
-tira.TYPE.list [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--count] [--refs-only] [--brief] [--truncate N|--full] [--where CLAUSE ...] [-o FORMAT]
+tira.TYPE.list [--column SLUG] [--assignee ID] [--parent REF] [--label TEXT ...] [--text QUERY] [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--count] [--refs-only] [--brief] [--truncate N|--full] [--where CLAUSE ...] [-o FORMAT]
 tira.TYPE.update --ref REF [record field arguments] [--author NAME] [-o FORMAT]
 tira.TYPE.move --ref REF --column SLUG [--author NAME] [-o FORMAT]
 tira.TYPE.discard --ref REF [-o FORMAT]

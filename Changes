@@ -1,5 +1,19 @@
 Revision history for Tira
 
+5.206  2026-09-24
+    - TKT-733: ticket.list --label VALUE was accepted at the option-parsing
+      layer ('label=s@') but record_list never read $args{labels} at all -
+      every call returned the entire unfiltered board regardless of the
+      value given, including a label matching no card. A nonsense label
+      proved it: nothing could possibly match, and the full count came
+      back anyway - the dangerous direction of failure, since it looks
+      like a real, narrowed answer rather than an obvious empty one.
+      record_list now filters on labels with OR semantics (a record
+      matches if it carries ANY of the given values, matching --label's
+      own repeatable option-layer declaration). The refs_only fast path
+      (which never parses record content) is also excluded when --label
+      is given, so it no longer bypasses the new filter entirely.
+
 5.205  2026-09-24
     - TKT-789: tira.policy.declined with no --ref returned ONLY board-wide
       declines (declined_policies), silently omitting every real, stored

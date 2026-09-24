@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.205';
+our $VERSION = '5.206';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2637,7 +2637,8 @@ sub record_list {
     # changed ones.
     my $refs_only_unfiltered = $args{refs_only}
       && !defined $args{column} && !defined $args{assignee} && !defined $args{parent}
-      && !defined $args{text} && !$where && !defined $threshold;
+      && !defined $args{text} && !$where && !defined $threshold
+      && !( defined $args{labels} && @{ $args{labels} } );
 
     # Scoped to THIS call, not the pass ($self->{_path_cache} is the
     # pass-wide one, below) - a ref this one walk visits twice is on disk
@@ -2739,8 +2740,35 @@ sub record_list {
             my $column = basename( dirname($path) );
             return if defined $args{column} && $column ne $args{column};
             return if defined $args{assignee} && ( $record->{assignee} // '' ) ne $args{assignee};
+
+            # TKT-733. --label ('label=s@' in the CLI spec) reached %args as
+            # $args{labels} (the generic %args = %{$option} assignment
+            # already threaded it through) but nothing here ever read it -
+            # accepted, silently ignored, the full unfiltered board answered
+            # regardless of the value given, including one no card could
+            # possibly carry. OR semantics: a record matches if it carries
+            # ANY of the given values, the conventional meaning for a
+            # repeatable filter flag, matching --label's own =s@ spec.
+            if ( defined $args{labels} && @{ $args{labels} } ) {
+                my %record_labels = map { $_ => 1 } @{ $record->{labels} // [] };
+                return if !grep { $record_labels{$_} } @{ $args{labels} };
+            }
             my $parent = $record->{parent} // '';
             return if defined $args{parent} && $parent ne $args{parent};
+
+            # TKT-733. --label is accepted by the shared option spec ('label=s@')
+            # but was never read here, so it was parsed, stored, and silently
+            # ignored - every call returned the whole board regardless of the
+            # value given, including a label matching nothing (the dangerous
+            # direction of failure: a large, plausible number rather than an
+            # obvious empty result that invites suspicion). OR semantics: a
+            # record matches if it carries ANY of the given values, the
+            # conventional meaning for a repeatable filter flag - matching how
+            # --label is already repeatable ('label=s@') at the option layer.
+            if ( defined $args{labels} && @{ $args{labels} } ) {
+                my %record_labels = map { $_ => 1 } @{ $record->{labels} // [] };
+                return if !grep { $record_labels{$_} } @{ $args{labels} };
+            }
             return if defined $args{text}
               && index( lc _search_haystack($record), lc $args{text} ) < 0;
             return if defined $threshold && !_changed_since( $record, $threshold );

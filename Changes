@@ -1,7 +1,7 @@
 Revision history for Tira
 
 5.207  2026-09-25
-    - TKT-982: moving a card SIDEWAYS into a park column (e.g.
+    - TKT-982: moving a card SIDEWAYS into an UNWATCHED park column (e.g.
       blocked-by-dependency) that the source column itself declares as one
       of its own valid --next fork targets reset required actions for
       EVERY previously-completed column, not just the target's own.
@@ -13,13 +13,20 @@ Revision history for Tira
       all. Reproduced live: a card with 4 completed required items across
       four earlier columns, moved sideways into such a park, had all 4
       reset to pending in one move. The fix checks whether the destination
-      is named in the SOURCE column's own declared --next fork list - the
-      same field _column_skip_blocked already reads to decide whether a
-      FORWARD skip is a legitimate fork - and if so, treats the move like
-      a forward one (populate the destination's own entry items only). A
-      destination not named in the source's own fork list still resets by
-      the existing index-range logic, unchanged - a genuine backward
-      retreat is unaffected.
+      is named in the SOURCE column's own declared --next fork list AND is
+      itself unwatched - the fork check is the same field
+      _column_skip_blocked already reads to decide whether a FORWARD skip
+      is a legitimate fork, and the unwatched check (Codex review, after a
+      first draft exempted any declared fork regardless of watch status)
+      keeps a genuine retreat between two ordinary WATCHED working columns
+      resetting exactly as before, even if one happens to be named in the
+      other's own --next for some unrelated reason. A qualifying move
+      populates the destination's own EXIT-required-actions template only;
+      entry_required_actions are not populated on this path - a separate,
+      pre-existing limitation shared with every other backward-index move,
+      fork or genuine retreat alike, and out of this ticket's scope. A
+      destination that is watched, or not named in the source's own fork
+      list, still resets by the existing index-range logic, unchanged.
 
 5.206  2026-09-24
     - TKT-733: ticket.list --label VALUE was accepted at the option-parsing

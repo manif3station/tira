@@ -636,25 +636,38 @@ sub _apply_column_required_actions {
     # declared on two different columns can never be confused for one item.
     my @required_items = @{ $record->{required_items} // [] };
 
-    # TKT-982. A move INTO a column the source column itself names in its own
-    # declared `next` fork list is a sideways move to a legitimate alternate
-    # destination, not a retreat back through the chain - even though the
-    # destination's own ARRAY POSITION happens to sit earlier than the
-    # source's, which is all $to_idx < $from_idx actually measures. A park
-    # column like `blocked-by-dependency`, declared as a fork target from
-    # every working column, is reachable this way from any of them - and a
-    # card moving there has not un-done the work that got it there. Measured
-    # live: a card that had closed 48 required items across seven earlier
-    # columns had every one of them reset to pending by a single sideways
-    # move into such a park, because the reset below keys on index order
-    # alone with no way to tell "the board declared this destination
-    # reachable from here" apart from "the card is retreating step by step
-    # back through columns it already left". Checked on the SOURCE column's
-    # own `next`, not the destination's - a fork is declared as an option
-    # FROM the column offering it, matching exactly what _column_skip_blocked
-    # above already reads to decide whether a FORWARD skip is a fork.
+    # TKT-982. A move INTO an UNWATCHED park column the source column itself
+    # names in its own declared `next` fork list is a sideways move to a
+    # legitimate alternate destination, not a retreat back through the chain
+    # - even though the destination's own ARRAY POSITION happens to sit
+    # earlier than the source's, which is all $to_idx < $from_idx actually
+    # measures. A park column like `blocked-by-dependency`, declared as a
+    # fork target from every working column, is reachable this way from any
+    # of them - and a card moving there has not un-done the work that got it
+    # there. Measured live: a card that had closed 48 required items across
+    # seven earlier columns had every one of them reset to pending by a
+    # single sideways move into such a park, because the reset below keys on
+    # index order alone with no way to tell "the board declared this
+    # destination reachable from here" apart from "the card is retreating
+    # step by step back through columns it already left". Checked on the
+    # SOURCE column's own `next`, not the destination's - a fork is declared
+    # as an option FROM the column offering it, matching exactly what
+    # _column_skip_blocked above already reads to decide whether a FORWARD
+    # skip is a fork.
+    #
+    # Codex review, TKT-982: the first draft exempted ANY declared fork,
+    # forward-positioned or not - but column_update only checks that a
+    # --next target exists, not where it sits, so a board could legitimately
+    # declare an EARLIER ordinary working column as a fork target for some
+    # other reason (e.g. "back to planning for a deliberate re-check") and
+    # have a genuine retreat silently exempted from its reset. Narrowed to
+    # match the original report's own framing exactly - an UNWATCHED park,
+    # not any declared fork - since an ordinary working column always stays
+    # watched and a genuine retreat between two of them should still reset.
     my ($from_col) = grep { $_->{name} eq $from } @{$columns};
-    my $is_declared_fork = $from_col && grep { $_ eq $to } @{ $from_col->{next} // [] };
+    my ($to_col)   = grep { $_->{name} eq $to } @{$columns};
+    my $is_declared_fork = $from_col && $to_col && !$to_col->{watched}
+      && grep { $_ eq $to } @{ $from_col->{next} // [] };
 
     if ( $to_idx > $from_idx || $is_declared_fork ) {
         Tira::CLI::_populate_column_required_actions( $tira, $args, $to, $columns, \@required_items );

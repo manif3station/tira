@@ -11,6 +11,15 @@
 #
 # WRITTEN RED: no fork exemption exists yet, so this reproduces against
 # the pre-fix code.
+#
+# Codex review: a first draft exempted ANY declared fork, forward-
+# positioned or not - column_update only checks that a --next target
+# exists, not where it sits, so a board naming a genuine EARLIER working
+# column as a fork target (for some other legitimate reason) would have
+# had a real retreat silently exempted. Narrowed to require the
+# destination be genuinely UNWATCHED too, matching the original report's
+# own "unwatched park" framing - this file's own "watched fork, still
+# resets" case below exists specifically to catch that regression again.
 
 use strict;
 use warnings;
@@ -32,6 +41,7 @@ $tira->project_new(
     sow_prefix => 'PFW', epic_prefix => 'PFE', ticket_prefix => 'PFT',
 );
 $tira->column_update( project => $root, type => 'ticket', name => 'backlog', next => ['analysing'], author => 'claude' );
+$tira->column_update( project => $root, type => 'ticket', name => 'blocked-by-dependency', watched => 0, author => 'claude' );
 my %chain = ( analysing => 'planning', planning => 'in-progress', 'in-progress' => 'unit-test', 'unit-test' => 'done' );
 for my $col ( keys %chain ) {
     $tira->column_update( project => $root, type => 'ticket', name => $col,
@@ -88,6 +98,21 @@ my $after2 = $tira->record_show( project => $root, ref => $card2->{ref} );
 my @pending2 = grep { $_->{status} ne 'done' } @{ $after2->{required_items} };
 is( scalar(@pending2), 4,
     'a genuine backward retreat (not a declared fork of the source) still resets planning/in-progress/unit-test and repopulates analysing, unaffected by the fork exemption' );
+
+# --- MUST NOT REGRESS: a declared fork to a WATCHED earlier column is not --
+# --- exempt either - a board naming a genuine ordinary working column as a -
+# --- fork target for some other reason still gets the real retreat reset --
+# --- (Codex review caught a first draft that exempted ANY declared fork) --
+
+$tira->column_update( project => $root, type => 'ticket', name => 'unit-test',
+    next => [ 'done', 'blocked-by-dependency', 'analysing' ], author => 'claude' );
+my $card3 = $tira->create_record( project => $root, type => 'ticket', title => 'Contended3' );
+complete_up_to_unit_test( $card3->{ref} );
+run_cli( '--ref', $card3->{ref}, '--column', 'analysing', '--author', 'claude', '-o', 'json' );
+my $after3 = $tira->record_show( project => $root, ref => $card3->{ref} );
+my @pending3 = grep { $_->{status} ne 'done' } @{ $after3->{required_items} };
+is( scalar(@pending3), 4,
+    'a declared fork to a WATCHED earlier column (analysing, now named in unit-test\'s own next) still resets - only an UNWATCHED park is exempt' );
 
 done_testing();
 

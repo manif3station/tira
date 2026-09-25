@@ -4213,6 +4213,23 @@ of this same backward-reset design (TKT-455), which is why it can look
 like every required item on the card was silently wiped; the comment
 exists so a reader never has to guess.
 
+**Since 5.207 (TKT-982), "backward" for the purpose of this reset excludes
+a sideways move into a column the SOURCE column itself names in its own
+`--next` fork list.** The reset used to key on array-position index alone:
+if the destination's index was lower than the source's, every required
+item between them that was already done got reset, no matter why the
+destination sat where it did. A park column such as
+`blocked-by-dependency`, declared as a legitimate `--next` fork target
+reachable from several working columns, typically sits early in the
+column array for exactly that reason - so a card parking there sideways
+had every required item it had already closed reset to pending, measured
+live at 48 items across seven columns from a single move. The fix reads
+the same source-column `next` list the forward-skip fork check already
+reads: a destination named there is treated as a forward move (its own
+entry template is added, nothing resets), regardless of index. A
+destination not named there still resets by the unchanged index-range
+logic - a genuine backward retreat is unaffected.
+
 - `tira.required-action.add --ref REF --item TEXT --status TEXT [--column SLUG] [--author NAME] [-o FORMAT]` - adds an item tagged with the card's current column; unlike checklist.add, this item gates the card's next move out of that column. `--column` overrides the tag to name a different column, which is how a required item is backfilled onto a card without physically moving it back through that column first. Since 5.62 `--item` refuses a whitespace-only value the same way `checklist.add` and `evidence.add` do. TKT-909. **Since 5.111 (TKT-642), the next `REQ-NNN` id is the highest existing number plus one, not a count of the list** - the same fix `checklist.add` got at the same time, for the same reason: an item removed by hand could otherwise reissue an id already quoted in a proof, a refusal, or a `required-action.update` call.
 - `tira.required-action.list --ref REF [--status STATUS] [--blocking] [--brief] [-o FORMAT]`
   - `--status STATUS` (TKT-804) narrows to items in that status (`pending` or

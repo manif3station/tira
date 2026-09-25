@@ -636,7 +636,27 @@ sub _apply_column_required_actions {
     # declared on two different columns can never be confused for one item.
     my @required_items = @{ $record->{required_items} // [] };
 
-    if ( $to_idx > $from_idx ) {
+    # TKT-982. A move INTO a column the source column itself names in its own
+    # declared `next` fork list is a sideways move to a legitimate alternate
+    # destination, not a retreat back through the chain - even though the
+    # destination's own ARRAY POSITION happens to sit earlier than the
+    # source's, which is all $to_idx < $from_idx actually measures. A park
+    # column like `blocked-by-dependency`, declared as a fork target from
+    # every working column, is reachable this way from any of them - and a
+    # card moving there has not un-done the work that got it there. Measured
+    # live: a card that had closed 48 required items across seven earlier
+    # columns had every one of them reset to pending by a single sideways
+    # move into such a park, because the reset below keys on index order
+    # alone with no way to tell "the board declared this destination
+    # reachable from here" apart from "the card is retreating step by step
+    # back through columns it already left". Checked on the SOURCE column's
+    # own `next`, not the destination's - a fork is declared as an option
+    # FROM the column offering it, matching exactly what _column_skip_blocked
+    # above already reads to decide whether a FORWARD skip is a fork.
+    my ($from_col) = grep { $_->{name} eq $from } @{$columns};
+    my $is_declared_fork = $from_col && grep { $_ eq $to } @{ $from_col->{next} // [] };
+
+    if ( $to_idx > $from_idx || $is_declared_fork ) {
         Tira::CLI::_populate_column_required_actions( $tira, $args, $to, $columns, \@required_items );
     }
     elsif ( $to_idx < $from_idx ) {

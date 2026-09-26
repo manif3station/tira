@@ -1,5 +1,20 @@
 Revision history for Tira
 
+5.210  2026-09-26
+    - TKT-816: priority-skipped had three holds for a card sitting above the
+      one being worked - an unanswered question, a future start_date, a
+      discarded card - but none for the commonest case on an agent-run
+      board: a card a human has explicitly claimed and will do himself. Every
+      card an agent worked below it fired priority-skipped naming it, because
+      no agent could ever satisfy a hold that needed him to answer a
+      question that was never asked. Added a fourth hold: the above card is
+      not reported when its assignee is a real, registered person other than
+      the board's own declared agent - read via the same
+      _agent_declared_for (project_new's --agent, TKT-459) card-changed-by-
+      owner already uses, so no new field or person-kind distinction was
+      needed. An above card assigned to nobody, or to the agent itself,
+      still fires normally.
+
 5.209  2026-09-26
     - TKT-850: board-unbacked's signal, backed_up_at, was the later of two
       commit-shaped stamps - tira.backup's own git commit, and the gate's

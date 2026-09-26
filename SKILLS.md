@@ -2277,9 +2277,11 @@ the plain functions `_render_view`, `_view_asset` and `json_object`.
 
 **A `<key>`-shaped substring inside `<description>` could be mistaken for a second issue, since 5.199** (TKT-1154). The key-extraction regex scanned the whole file as raw text, not scoped to the item's own top-level fields - so a `<description>` quoting example markup containing a literal `<key>...</key>`-shaped substring (a realistic case: Jira tickets about markup or config commonly quote such examples) was counted as a second issue key, wrongly refusing a perfectly valid single-issue export with "takes exactly one issue at a time", naming a key that was never a real Jira issue. Found by the hourly bug hunt, reproduced live in a container. Fixed by skipping `<description>...</description>` spans before running the key regex; the genuine multi-issue refusal (`t/1160`) still works. Codex review caught the first version of this fix: a plain non-greedy match ended early at a literal `</description>` substring inside CDATA-wrapped description content, leaving a real embedded `<key>` tag unstripped - the strip now tries the CDATA-wrapped form first, matching through to the actual closing `]]>` before requiring `</description>`, so a description's own CDATA content can safely contain that literal text.
 
-`lib/Tira.pm` is 16,058 lines now (TKT-637 added an optional said_at to
-conversation entries and card-changed-by-owner's own historical-quote
-exemption); it was 16,036 lines as of TKT-733, which added a labels filter to
+`lib/Tira.pm` is 16,083 lines now (TKT-816 added a fourth priority-skipped
+hold, exempting an above card claimed by a human assignee); it was 16,058
+lines as of TKT-637, which added an optional said_at to conversation entries
+and card-changed-by-owner's own historical-quote exemption; it was 16,036
+lines as of TKT-733, which added a labels filter to
 `record_list`; it was 15,998 lines as of TKT-1156, which routed
 `policy_evaluate`'s inline card-duration branch through
 `_card_duration_inputs` instead of an independent copy of the same
@@ -2571,6 +2573,21 @@ authorisation when he queues a newer one behind it, because the exemption reads 
 move that really happened rather than the column's current contents: his column
 governs what is picked up next, and stopping an active card to take it is the
 pause he has forbidden.
+
+**A card he has explicitly claimed is a fourth hold, since 5.210 (TKT-816).**
+`priority-skipped` already parked an above card on an unanswered question, a
+future `start_date`, or a discard - none covered the commonest case on an
+agent-run board: a card he said, in writing, he would do himself. DD-667 was
+a plaintext credential fix he claimed personally; every card worked below it
+fired this rule naming it, because no agent could ever satisfy a hold that
+needed him to answer a question that was never asked. The hold reads the
+above card's own `assignee` and exempts it when that assignee is a real,
+registered person other than the board's own declared agent
+(`project_new --agent`, TKT-459) - the same lookup `card-changed-by-owner`
+already makes, so no new field or agent/human member distinction was needed.
+An above card assigned to nobody is not claimed by anybody and still fires;
+one assigned to the agent itself is the agent's own backlog, not a human
+claim, and still fires too.
 
 **The 500-line rule is enforced (TKT-751, 5.43).** Michael's instruction,
 Telegram 6104: *"Any Perl file more that 500 lines will be decomposed."* Until

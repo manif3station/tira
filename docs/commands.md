@@ -3619,6 +3619,12 @@ condition, and the answer arriving releases the card. Until 2.45 only the rule
 read it, so a card could be parked by the rule and offered by the command in the
 same moment.
 
+Since 5.210, a card assigned to a real person other than the board's declared
+agent is a fourth hold `priority-skipped` reads the same way - claimed by him,
+not skipped by the agent. See docs/POLICIES.md's `priority-skipped` table row
+for the full mechanism (TKT-816); it does not change `tira.next`'s own
+ordering, only whether the rule reports a card already held as passed over.
+
 A card whose `start_date` is in the future is held the same way - the other
 machine-readable, already-validated hold this board carries: a maintenance
 window, an embargo, a market close, expressed as "held until a moment" rather

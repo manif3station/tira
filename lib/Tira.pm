@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.209';
+our $VERSION = '5.210';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -10782,6 +10782,21 @@ sub policy_evaluate {
             # TKT-274, and TKT-252 before it.
             my @waiting = @{ $self->work_order( project => $root ) };
 
+            # Hold four: a card a human has explicitly claimed and will do
+            # himself - the commonest case on an agent-run board and the one
+            # none of the first three holds cover. DD-667 was a plaintext
+            # credential fix he said he would handle personally; every card
+            # worked below it fired this rule naming it, because no agent can
+            # ever satisfy a hold that needs him to answer a question that was
+            # never asked.
+            #
+            # Q-184 settled the mechanism over the other candidate: infer from
+            # the above card's assignee rather than a new marker field, reading
+            # the same declared agent id card-changed-by-owner already reads
+            # via _agent_declared_for (project_new's --agent, TKT-459) - no new
+            # schema, no new person-kind distinction. TKT-816.
+            my $agent = $self->_agent_declared_for($root) // '';
+
             for my $record ( @{$records} ) {
                 next if !$resolved_for->( $policy, $record );
                 my $type = $record->{type} // 'ticket';
@@ -10803,6 +10818,16 @@ sub policy_evaluate {
                     # he answers is not being ignored, and reporting it would
                     # blame the agent for the one delay that is not its doing.
                     next if grep { !$_->{answer} } _policy_questions($above);
+
+                    # Claimed, not skipped. Assigned to a real, registered
+                    # person who is not the board's own declared agent - the
+                    # agent's own name does not exempt its own backlog, which
+                    # would silence the rule for the one case it exists to
+                    # catch. TKT-816.
+                    next
+                      if defined $above->{assignee}
+                      && $above->{assignee} ne ''
+                      && $above->{assignee} ne $agent;
 
                     # Two different facts can decide this, and the message says
                     # whichever one actually did. Printing "above this card's N"

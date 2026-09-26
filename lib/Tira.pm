@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.207';
+our $VERSION = '5.208';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -4517,6 +4517,7 @@ sub conversation_add {
             heard => $args{heard},
             said => $args{said} // '',
             created_at => $self->{clock}->(),
+            ( defined $args{said_at} ? ( said_at => $args{said_at} ) : () ),
         };
         push @{ $record->{conversation} }, $entry;
         $self->_replace_record( %args, record => $record );
@@ -9857,6 +9858,27 @@ sub policy_evaluate {
                 next if !$last;
                 next if ( $record->{assignee} // '' ) eq $last->{author};
                 next if $ours ne '' && $ours eq $last->{author};
+
+                # TKT-637. The journal's own generic diffing (_journal_changes)
+                # records only {field => 'conversation', changed => true} for
+                # any ref-typed field, including conversation - it never carries
+                # the entry's own content, so $last above cannot see a said_at.
+                # Read the record's own newest conversation entry directly
+                # instead: a materially older said_at (more than an hour, a
+                # deliberately generous threshold - a live instruction is
+                # normally folded in within minutes, and the reported case was
+                # eighteen days) means this is a historical quote being folded
+                # in, not the owner acting now, so it is not reported as a live
+                # change. No said_at, or one close to created_at, is unaffected.
+                if ( ( $last->{field} // '' ) eq 'conversation' ) {
+                    my $newest_said = $record->{conversation}[-1];
+                    if ( ref $newest_said eq 'HASH' && defined $newest_said->{said_at} ) {
+                        my $said_epoch = eval { _epoch_of_datetime( $newest_said->{said_at}, 'said_at' ) };
+                        my $created_epoch = eval { _epoch_of_datetime( $newest_said->{created_at}, 'created_at' ) };
+                        next if defined $said_epoch && defined $created_epoch
+                          && $created_epoch - $said_epoch > 3600;
+                    }
+                }
 
                 $report->( $policy, $record,
                     "changed by $last->{author}"

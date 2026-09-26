@@ -1,5 +1,22 @@
 Revision history for Tira
 
+5.208  2026-09-26
+    - TKT-637: a conversation record carried only created_at (when the
+      record was written), never when the words were actually said - so
+      folding in an instruction given eighteen days earlier was
+      indistinguishable by timestamp from the owner acting right now, and
+      card-changed-by-owner fired the same CRITICAL finding either way.
+      conversation.add gains an optional --said-at, stored as a new
+      said_at field on the entry. card-changed-by-owner now reads the
+      record's own newest conversation entry directly (the generic
+      journal never carries an entry's own content, only {field =>
+      'conversation', changed => true}) and skips reporting when that
+      entry's said_at is materially older (more than an hour, a
+      deliberately generous threshold) than its created_at - a historical
+      quote being folded in, not the owner acting now. An entry with no
+      said_at, or one whose said_at is close to created_at, is unaffected
+      and still fires exactly as before.
+
 5.207  2026-09-25
     - TKT-982: moving a card SIDEWAYS into an UNWATCHED park column (e.g.
       blocked-by-dependency) that the source column itself declares as one

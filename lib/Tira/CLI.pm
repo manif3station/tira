@@ -252,6 +252,7 @@ sub run {
         'older-than=s' => \$option{older_than},
         'notify-after=s' => \$option{notify_after}, 'mode=s' => \$option{mode},
         'said=s' => \$option{said}, 'heard=s' => \$option{heard},
+        'said-at=s' => \$option{said_at},
         'agent-session=s' => \$option{agent_session},
         'watch!' => \$option{watched}, 'terminal!' => \$option{terminal}, 'stale' => \$option{stale},
         'queue!' => \$option{queue}, 'required-action=s@' => \$option{required_action}, 'blocking' => \$option{blocking},

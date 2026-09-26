@@ -3462,6 +3462,7 @@ chain above it can see what happened at the bottom.
 | `--author WHO` | yes (add) | Who said it. Must be somebody the board knows. |
 | `--heard WHO` | no | Who it was said to. |
 | `--said TEXT` | yes (add) | What was said. |
+| `--said-at DATETIME` | no | When it was actually said, since 5.208. |
 | `-o FORMAT` | no | As above. |
 
 Separate from comments on purpose. A comment is somebody writing on the card;
@@ -3474,6 +3475,8 @@ report hears what — so without this a manager knows what it said downward and
 nothing of what came back.
 
 **`--author` names the speaker, and since 5.88 that is genuinely all it does** (TKT-677). Recording the owner's own words used to journal the change under the owner too - `--author` was reused as both "who said it" and "who is making this change to the card", the one place those differ, since for every other command they are the same person. The result: an agent recording something the owner said made `card-changed-by-owner` report that the owner had just edited the card, one line after the agent wrote it. The CLI now threads its own `TIRA_AUTHOR` through as the actual acting author for the journal, while `--author` keeps meaning exactly what this table says and `conversation.list` still shows that person as the speaker. A direct engine call with no acting author falls back to the speaker, unchanged from before. `card-changed-by-owner` itself needed no change - it was already reading the journal correctly; the journal was naming the wrong person.
+
+**`--said-at`, since 5.208 (TKT-637), closes a second, later-discovered gap in the same rule.** A conversation entry carried `created_at` (when the record was written) but nothing for when the words were actually said, so quoting an instruction from eighteen days earlier was indistinguishable by timestamp from the owner acting right now - `card-changed-by-owner` fired the same CRITICAL finding either way, even though the two cases call for opposite responses (one is worth interrupting the agent for, the other is a historical record being folded in). `card-changed-by-owner` now reads the record's own newest conversation entry directly rather than the generic journal - which, for any ref-typed field including `conversation`, records only `{field => 'conversation', changed => true}` and never the entry's own content - and skips reporting when that entry's `said_at` is materially older (more than an hour, a deliberately generous threshold) than its `created_at`. An entry with no `said_at`, or one whose `said_at` is close to `created_at`, still fires exactly as before.
 
 ### `tira.agent.sessions`
 

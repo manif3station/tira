@@ -21,6 +21,7 @@ use Test::More;
 
 use lib 'lib';
 use Tira;
+use Tira::CLI;
 
 my $tmp   = tempdir( CLEANUP => 1 );
 my $now   = '2026-09-26T15:00:00Z';
@@ -85,6 +86,62 @@ $tira->conversation_add(
 my $found3 = reported( $card3->{ref} );
 is( scalar @{$found3}, 1, 'a said_at only 10 seconds before created_at still fires - not materially older' );
 is( $found3->[0]{ref}, $card3->{ref}, 'naming the right card' );
+
+# --- exactly at the boundary: 3600 seconds is not MORE than 3600 ----------
+
+my $card4 = $tira->create_record( project => $root, type => 'ticket',
+    title => 'A said_at exactly one hour old', priority => 3, assignee => 'claude' );
+$tira->record_move( author => 'claude', project => $root, ref => $card4->{ref}, column => 'implement' );
+$now = '2026-09-26T19:00:00Z';
+$tira->conversation_add(
+    project => $root, ref => $card4->{ref}, author => 'michael', heard => 'claude',
+    said => 'Said exactly an hour ago.', said_at => '2026-09-26T18:00:00Z' );
+my $found4 = reported( $card4->{ref} );
+is( scalar @{$found4}, 1, 'a said_at exactly 3600 seconds older still fires - the check is strictly greater-than' );
+is( $found4->[0]{ref}, $card4->{ref}, 'naming the right card' );
+
+# --- a said_at in the FUTURE relative to created_at (a typo) still fires --
+
+my $card5 = $tira->create_record( project => $root, type => 'ticket',
+    title => 'A said_at typo\'d into the future', priority => 3, assignee => 'claude' );
+$tira->record_move( author => 'claude', project => $root, ref => $card5->{ref}, column => 'implement' );
+$now = '2026-09-26T20:00:00Z';
+$tira->conversation_add(
+    project => $root, ref => $card5->{ref}, author => 'michael', heard => 'claude',
+    said => 'Said_at typo\'d a day into the future.', said_at => '2026-09-27T20:00:00Z' );
+my $found5 = reported( $card5->{ref} );
+is( scalar @{$found5}, 1, 'a said_at AFTER created_at (a typo) still fires - it is not wrongly suppressed' );
+is( $found5->[0]{ref}, $card5->{ref}, 'naming the right card' );
+
+# --- the CLI path: --said-at reaches the entry exactly like the API ------
+
+my $card6 = $tira->create_record( project => $root, type => 'ticket',
+    title => 'Folding in an old quote via the CLI', priority => 3, assignee => 'claude' );
+$tira->record_move( author => 'claude', project => $root, ref => $card6->{ref}, column => 'implement' );
+$now = '2026-09-26T21:00:00Z';
+
+sub run_cli {
+    my (@argv) = @_;
+    local $ENV{TIRA_HOME}   = $root;
+    local $ENV{TIRA_AUTHOR} = 'claude';
+    open my $out, '>', \my $stdout or die $!;
+    my $old = select $out;
+    my $status = Tira::CLI->run( command => 'conversation.add', tira => $tira, argv => \@argv );
+    select $old;
+    return ( $status, $stdout );
+}
+
+my ( $status, $out ) = run_cli(
+    '--ref', $card6->{ref}, '--author', 'michael', '--heard', 'claude',
+    '--said', 'Do this the other way round.', '--said-at', '2026-09-08T09:00:00Z', '-o', 'json',
+);
+is( $status, 0, 'the CLI call with --said-at succeeds' );
+
+my $listed6 = $tira->conversation_list( project => $root, ref => $card6->{ref} );
+is( $listed6->[-1]{said_at}, '2026-09-08T09:00:00Z', '--said-at on the CLI reaches the stored entry' );
+
+is( scalar @{ reported( $card6->{ref} ) }, 0,
+    'card-changed-by-owner does not fire for the CLI path either - the same historical quote' );
 
 done_testing();
 

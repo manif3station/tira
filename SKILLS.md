@@ -2277,8 +2277,10 @@ the plain functions `_render_view`, `_view_asset` and `json_object`.
 
 **A `<key>`-shaped substring inside `<description>` could be mistaken for a second issue, since 5.199** (TKT-1154). The key-extraction regex scanned the whole file as raw text, not scoped to the item's own top-level fields - so a `<description>` quoting example markup containing a literal `<key>...</key>`-shaped substring (a realistic case: Jira tickets about markup or config commonly quote such examples) was counted as a second issue key, wrongly refusing a perfectly valid single-issue export with "takes exactly one issue at a time", naming a key that was never a real Jira issue. Found by the hourly bug hunt, reproduced live in a container. Fixed by skipping `<description>...</description>` spans before running the key regex; the genuine multi-issue refusal (`t/1160`) still works. Codex review caught the first version of this fix: a plain non-greedy match ended early at a literal `</description>` substring inside CDATA-wrapped description content, leaving a real embedded `<key>` tag unstripped - the strip now tries the CDATA-wrapped form first, matching through to the actual closing `]]>` before requiring `</description>`, so a description's own CDATA content can safely contain that literal text.
 
-`lib/Tira.pm` is 16,036 lines now (TKT-733 added a labels filter to
-`record_list`); it was 15,998 lines as of TKT-1156, which routed
+`lib/Tira.pm` is 16,058 lines now (TKT-637 added an optional said_at to
+conversation entries and card-changed-by-owner's own historical-quote
+exemption); it was 16,036 lines as of TKT-733, which added a labels filter to
+`record_list`; it was 15,998 lines as of TKT-1156, which routed
 `policy_evaluate`'s inline card-duration branch through
 `_card_duration_inputs` instead of an independent copy of the same
 resting/watched/since/older-than-age computation. It was 15,995 as of
@@ -2361,7 +2363,7 @@ split "is this file text?" across two files.
 
 **`t/431` found three dangling references this lift would otherwise have
 shipped**, and it is worth naming what they were, because a hand-check missed
-all three. `_epoch_of_datetime` called bare (50 callers in the engine — shared
+all three. `_epoch_of_datetime` called bare (52 callers in the engine — shared
 furniture, now reached by package name), `_looks_like_text` called bare (its
 only caller had just left), and `encode_utf8` imported by `Tira.pm` and not by
 the new module — which is exactly the third failure `t/431` was written for: it

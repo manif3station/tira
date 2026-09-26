@@ -1,5 +1,20 @@
 Revision history for Tira
 
+5.209  2026-09-26
+    - TKT-850: board-unbacked's signal, backed_up_at, was the later of two
+      commit-shaped stamps - tira.backup's own git commit, and the gate's
+      dated backup directories - and a no-op d2 tira.backup run (nothing
+      changed, so no new commit) could never move either one, so a board
+      correctly, deliberately idle past its own age window could never
+      clear the rule by running its own documented remedy. tira.backup
+      now writes a gitignored .last-checked stamp inside the board's own
+      .tira store on EVERY run, changed or not; Police::World's
+      backed_up_at computation folds this third source into the existing
+      "later of the two" comparison, now a later-of-three.
+      Also: lib/Tira/CLI/Backup.pm's and lib/Tira/CLI/Police/World.pm's
+      POD moved to sibling .pod files, matching the existing
+      Tira.pm/Police.pm/Serve.pm/Usage.pm/Render.pm convention.
+
 5.208  2026-09-26
     - TKT-637: a conversation record carried only created_at (when the
       record was written), never when the words were actually said - so

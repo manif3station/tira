@@ -100,6 +100,12 @@ do {
     close $quiet;
 };
 
+# TKT-850 added a THIRD source to backed_up_at: the moment tira.backup was
+# last RUN, not just committed. This test is deliberately about the other
+# two - unlinking the run just made keeps its own two-mechanism scenarios
+# below isolated from a third this file was never about.
+unlink File::Spec->catdir( $root, '.tira', '.last-checked' );
+
 {
     my $store = File::Spec->catdir( $root, '.tira' );
     local $ENV{GIT_COMMITTER_DATE} = '2020-01-01T00:00:00+0000';

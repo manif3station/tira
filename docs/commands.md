@@ -1440,6 +1440,15 @@ and names the backup that still stands, because `board-unbacked` asks for one on
 a schedule and a command that failed on a quiet afternoon would teach whoever
 reads the bridge to ignore it.
 
+**A no-op run still proves the job is alive, since 5.209.** Every run - changed
+or not - writes a gitignored `.last-checked` stamp inside the board's own
+`.tira` store, holding the moment `tira.backup` was last run. `board-unbacked`
+reads the LATEST of that stamp, the last real commit, and the gate's own
+dated export directories - so a board that is correctly, deliberately idle no
+longer fires the rule forever just because nothing has changed to commit
+(TKT-850): the remedy the rule names now proves somebody checked, not only
+that something happened.
+
 The lock file is the one thing left out. A restored lock is somebody else's
 half-finished write, restored.
 

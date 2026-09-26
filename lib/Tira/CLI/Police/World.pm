@@ -210,9 +210,16 @@ sub police_world {
     # a board the gate had backed up 481 times was told its last backup was the
     # one somebody ran by hand six hours earlier - and advised to run that same
     # command. The later of the two is the answer.
+    # A third source, alongside the commit and the gate's dated directories:
+    # the moment tira.backup was last RUN, whether or not it found anything
+    # to commit. Neither of the other two can move on a no-op run - no
+    # commit, and the gate never ran - so a board correctly, deliberately
+    # idle past its own last real change could never clear this rule by
+    # running its own documented remedy. TKT-850.
     $world->{backed_up_at} = Tira::CLI::Backup::_later_backup(
         Tira::CLI::Backup::_last_backup_commit( Tira::CLI::Backup::_backup_store($root) ),
         Tira::CLI::Backup::_last_backup( $args{backups} // Tira::CLI::Backup::_backup_home($root) ),
+        Tira::CLI::Backup::_last_checked( Tira::CLI::Backup::_backup_store($root) ),
     );
     $world->{card_in_progress} = exists $args{card_in_progress}
       ? $args{card_in_progress}
@@ -221,39 +228,3 @@ sub police_world {
 }
 1;
 
-__END__
-
-=head1 NAME
-
-Tira::CLI::Police::World - what is true of this machine, for the police pass
-
-=head1 DESCRIPTION
-
-C<police_world> gathers what police needs to evaluate its rules and the
-board's own engine will never touch: running processes, running containers,
-git branches and worktrees for the project's declared (or guessed)
-repository, unpushed commits across that repository and every per-ticket
-sandbox clone beside it, when the working tree last changed, and when the
-board was last backed up. Lifted out of L<Tira::CLI::Police> by TKT-1103.
-
-=head1 CALL IT THROUGH TIRA::CLI::POLICE, NOT DIRECTLY
-
-C<Tira::CLI::Police> is where every one of these lived before this lift,
-and C<police_world> stays reachable at C<Tira::CLI::Police::police_world>
-through a one-line forward - several existing tests and
-L<Tira::CLI::Job::Monitor> already call it (and C<_running_processes>,
-C<_running_containers>, C<_unpushed_commits>, C<_tree_changing_since>) by
-that fully-qualified name, and the forward is what keeps them working
-unchanged.
-
-=head1 IF YOU EDIT THIS MODULE
-
-C<police_world>'s own call to C<_card_in_progress> reaches across to
-C<Tira::CLI::Police::_card_in_progress> by its fully-qualified name,
-because that helper reads the BOARD rather than the machine and stayed
-where it was - an unqualified call would resolve to a same-named sub in
-THIS package at compile time, which does not exist, rather than reaching
-the one that does. Any new call this module needs to make back into
-C<Tira::CLI::Police> should be qualified the same way.
-
-=cut

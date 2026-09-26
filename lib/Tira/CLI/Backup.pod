@@ -1,0 +1,59 @@
+=head1 NAME
+
+Tira::CLI::Backup - the backup, restore, export and import verbs
+
+=head1 DESCRIPTION
+
+C<backup>, C<backup_restore>, C<backup_export> and C<backup_import> are the
+bodies behind C<tira.backup>, C<tira.backup.restore>, C<tira.backup.export> and
+C<tira.backup.import>. They lived in C<Tira::CLI> until 4.74, where they were
+four consecutive special-cases in C<_invoke> and 249 lines of bodies in the
+middle of a 6,048-line file.
+
+C<Tira::CLI> names the concern once and loads this module with C<require> when
+one of the four commands is actually run, so a CLI call that never backs
+anything up never compiles any of it.
+
+=head2 What stayed in Tira::CLI
+
+C<_backup_store> and C<_last_backup_commit> answer questions other parts of the
+CLI ask - the status output reads the last backup commit, and two test files
+call C<Tira::CLI::Backup::_last_backup_commit> by name. Moving them would have changed a
+surface this refactor is not allowed to change, so they are called here by their
+full names.
+
+C<_program_exists>, C<_reading>, C<_running> and C<_running_quietly> are general
+process helpers with nothing to do with backups.
+
+C<$Tira::CLI::SCHEMA_VERSION> is the board's schema version, not the backup
+format's; restore is only its loudest reader.
+
+=head2 How this module is loaded
+
+C<Tira::CLI> pulls this in with C<require> at the point one of its verbs runs,
+so a command that never needs it never compiles it. It calls into L<Tira::CLI::Serve>, and asks for
+that the same way - inside the sub that needs it, not at the top of this
+file. A C<use> there is correct and turns a lazy chain eager, which is how
+C<tira.next> came to compile four modules for the sake of one helper for the
+first hour after the split.
+
+=head2 backed_up_at has three sources, not two
+
+C<_last_backup_commit> answers when the board's own C<.tira> repository was
+last committed to; C<_last_backup> answers when the gate's own dated
+directories were last written. Neither moves when C<backup()> runs and finds
+nothing new to commit - no commit, and the gate never ran - so a board that is
+correctly, deliberately idle could never clear C<board-unbacked> by running
+its own documented remedy. TKT-850.
+
+C<_write_last_checked>/C<_last_checked> are the third source: the moment
+C<backup()> was last RUN, whether or not it found anything to commit, written
+to a gitignored C<.last-checked> file inside the store (ignored the same way
+C<.lock> and C<sessions/> already are, so writing it is never itself a change
+the next run has to commit). C<Tira::CLI::Police::World> folds this in
+alongside the other two through the same C<_later_backup> comparison it
+already used for them.
+
+=head1 SEE ALSO
+
+L<Tira::CLI>

@@ -87,7 +87,7 @@ sub backup {
             while ( my $line = <$read> ) { chomp $line; $already{$line} = 1 }
             close $read;
         }
-        my @missing = grep { !$already{$_} } ( '.lock', 'sessions/' );
+        my @missing = grep { !$already{$_} } ( '.lock', 'sessions/', '.last-checked' );
         if (@missing) {
             open my $handle, '>>', $ignore or die "Could not write $ignore: $!\n";
             print {$handle} "$_\n" for @missing;
@@ -125,6 +125,14 @@ sub backup {
     }
 
     my ($commit) = @{ Tira::CLI::Serve::_reading( 'git', '-C', $store, 'rev-parse', '--short', 'HEAD' ) };
+
+    # A no-op run is still a run. A COMMIT proves something changed; this
+    # proves somebody CHECKED, which is the fact board-unbacked actually
+    # needs and the one a no-op backup could never otherwise leave behind -
+    # gitignored above the same way .lock and sessions/ are, so writing it
+    # on every run never itself counts as a change to commit. TKT-850.
+    _write_last_checked( $store, $tira->{clock}->() );
+
     return {
         commit  => $commit,
         at      => _last_backup_commit($store),
@@ -336,6 +344,29 @@ sub _last_backup_commit {
     return sprintf '%04d-%02d-%02dT%02d:%02d:%02dZ',
       $moment[5] + 1900, $moment[4] + 1, $moment[3], $moment[2], $moment[1], $moment[0];
 }
+# When tira.backup was last RUN, whether or not it found anything to commit -
+# distinct from _last_backup_commit, which only answers when it last found
+# something to commit. Gitignored (added to $store's own .gitignore above),
+# so writing it is never itself a change the next run has to commit. TKT-850.
+sub _write_last_checked {
+    my ( $store, $when ) = @_;
+    return if !defined $store || !defined $when;
+    open my $handle, '>', File::Spec->catfile( $store, '.last-checked' )
+      or die "Could not write $store/.last-checked: $!\n";
+    print {$handle} "$when\n";
+    close $handle;
+    return 1;
+}
+sub _last_checked {
+    my ($store) = @_;
+    return undef if !defined $store;
+    open my $handle, '<', File::Spec->catfile( $store, '.last-checked' ) or return undef;
+    my $when = <$handle>;
+    close $handle;
+    return undef if !defined $when;
+    chomp $when;
+    return length($when) ? $when : undef;
+}
 # Where tools/board-backup writes: one directory per project, named for the
 # absolute path so two projects on one machine never write over each other.
 sub _backup_home {
@@ -367,50 +398,3 @@ sub _later_backup {
     return ( sort @when )[-1];
 }
 1;
-
-__END__
-
-=head1 NAME
-
-Tira::CLI::Backup - the backup, restore, export and import verbs
-
-=head1 DESCRIPTION
-
-C<backup>, C<backup_restore>, C<backup_export> and C<backup_import> are the
-bodies behind C<tira.backup>, C<tira.backup.restore>, C<tira.backup.export> and
-C<tira.backup.import>. They lived in C<Tira::CLI> until 4.74, where they were
-four consecutive special-cases in C<_invoke> and 249 lines of bodies in the
-middle of a 6,048-line file.
-
-C<Tira::CLI> names the concern once and loads this module with C<require> when
-one of the four commands is actually run, so a CLI call that never backs
-anything up never compiles any of it.
-
-=head2 What stayed in Tira::CLI
-
-C<_backup_store> and C<_last_backup_commit> answer questions other parts of the
-CLI ask - the status output reads the last backup commit, and two test files
-call C<Tira::CLI::Backup::_last_backup_commit> by name. Moving them would have changed a
-surface this refactor is not allowed to change, so they are called here by their
-full names.
-
-C<_program_exists>, C<_reading>, C<_running> and C<_running_quietly> are general
-process helpers with nothing to do with backups.
-
-C<$Tira::CLI::SCHEMA_VERSION> is the board's schema version, not the backup
-format's; restore is only its loudest reader.
-
-=head2 How this module is loaded
-
-C<Tira::CLI> pulls this in with C<require> at the point one of its verbs runs,
-so a command that never needs it never compiles it. It calls into L<Tira::CLI::Serve>, and asks for
-that the same way - inside the sub that needs it, not at the top of this
-file. A C<use> there is correct and turns a lazy chain eager, which is how
-C<tira.next> came to compile four modules for the sake of one helper for the
-first hour after the split.
-
-=head1 SEE ALSO
-
-L<Tira::CLI>
-
-=cut

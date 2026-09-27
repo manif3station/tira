@@ -1,5 +1,19 @@
 Revision history for Tira
 
+5.232  2026-09-27
+    - TKT-1177: d2 docker compose exec test can refuse "service test is not
+      running" against a stack it had itself just started, though ps (no
+      service argument) and config --services both show test declared and
+      up, and exec dev/exec gate work fine against the same stack. First
+      hypothesis - that the three per-tool compose files' differing
+      top-level name: fields caused it - was wrong: aligning them broke
+      t/1159's own deliberate check that each tool keeps a genuinely
+      distinct project/image (Q-179/Q-181/Q-182), so reverted. Root cause
+      remains open, likely inside the shared d2 docker compose resolver
+      itself rather than this skill's own compose files. Documented the
+      finding and the docker compose run --rm test <cmd> workaround in
+      SKILLS.md; no code or config shipped.
+
 5.231  2026-09-27
     - TKT-1176: TKT-1172's own SKILLS.md edit (5.230) named the literal
       TIRA_HOME string in its Concurrency and transaction semantics section,

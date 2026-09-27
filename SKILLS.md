@@ -260,6 +260,31 @@ an identical singleton in its own pid file since TKT-1100 - repeated
 `d2 tira.dashboard` starts had left every past bridge child running unbounded
 beside the newest one, which police's own claim never protected it from.
 
+**None of the above locking covers this skill's own source tree.** Every lock
+described in this section (`_with_project_lock`, `_with_enforcement_lock`, the
+police/bridge singleton pid files) protects board *records* under
+`TIRA_HOME` - it has no reach into `Changes`, `.env`, or `lib/Tira.pm`
+themselves, because those are edited directly by whatever is doing the
+development (an editor, a script, a concurrent AI agent session), completely
+outside `record_move`/`record_update`/the enforcement ledger. TKT-1172:
+confirmed live, a real incident, not a hypothetical - during a session running
+several concurrent agent forks against one shared working tree, two forks'
+sequential file-edit-then-`git commit` sequences raced on `Changes` with no
+lock or conflict detection at all, and the fork that committed second silently
+discarded the first fork's uncommitted entry, with no warning, no error, no
+trace in git history. It was caught only because the first fork happened to
+grep for its own entry afterward and found it gone. A code-level lock was
+considered and ruled out: the actual writers here are editor/agent processes
+invoking plain file writes and `git` directly, not calls into `lib/Tira.pm`,
+so there is no shared code path for `_with_project_lock`'s style of mutex to
+wrap. The mitigation is procedural: **commit an edit to `Changes`, `.env`, or
+`lib/Tira.pm` immediately after making it**, before starting any other edit
+to those same files, rather than batching several edits across a longer
+working session - this narrows the race window from "however long until the
+next commit" to "however long the commit itself takes," which is the
+difference between the incident above (real, exploitable window) and a race
+that would need two commits to land in the same instant (not observed).
+
 ## Record schema
 
 Every SOW, epic, and ticket JSON contains `ref`, `type`, `title`, `description`,

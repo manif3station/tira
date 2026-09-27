@@ -1,5 +1,20 @@
 Revision history for Tira
 
+5.230  2026-09-27
+    - TKT-1172: this session ran several concurrent agent forks against one
+      shared working tree, and a real incident followed - two forks' edit-
+      then-commit sequences raced on Changes with no lock at all, and the
+      fork that committed second silently discarded the first fork's entry
+      (caught only when TKT-1168's own fork grepped for it and found it
+      gone). Investigated a code-level lock (in the style of
+      _with_project_lock/_with_enforcement_lock) and ruled it out: the
+      actual writers are editor/agent Edit-tool calls plus git commit,
+      never calls into lib/Tira.pm, so there is no shared code path for a
+      Perl-side mutex to wrap. Documented the accepted mitigation instead,
+      in SKILLS.md's Concurrency and transaction semantics section: commit
+      an edit to Changes/.env/lib/Tira.pm immediately, before starting any
+      other edit to the same file.
+
 5.229  2026-09-27
     - TKT-1170: the "stalls inside policy_add" reading of the recurring
       d2 dev.run --coverage lib/Tira.pm hang was itself unsupported.

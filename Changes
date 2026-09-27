@@ -1,5 +1,13 @@
 Revision history for Tira
 
+5.221  2026-09-27
+    - TKT-1158: discard-unexplained's GRACE_SECONDS=5 window was too tight
+      for measured real agent latency (10s between two correctly-ordered,
+      back-to-back tool calls), and the same grace-window/explained-by-
+      comment logic was duplicated inline in backward-move-unexplained.
+      Widened to 30 (a 3x safety margin) and both rules now call one
+      shared _comments_explain_move helper.
+
 5.220  2026-09-27
     - TKT-1161: ticket/epic/sow list's --help usage line never mentioned
       --where, --since, --label, --refs-only, or --meta-only, all five

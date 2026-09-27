@@ -12435,7 +12435,29 @@ sub _outranks_for_work {
     my $their_age = $above->{created_at}  // '';
     my $our_age   = $record->{created_at} // '';
     return ( 0, undef ) if $their_age eq '' || $our_age eq '';
+
+    # created_at is written in the machine's LOCAL time with a dynamically
+    # computed UTC offset, so a card created just before a DST fall-back and
+    # one created a few minutes after it get strings whose wall-clock time
+    # goes backward even though real/UTC time moved forward. TKT-1159:
+    # compare the real instant, not the string. A stamp that fails to parse
+    # falls back to the string it came from, unchanged from before.
+    my $their_epoch = eval { _epoch_of_datetime( $their_age, 'Created at' ) };
+    my $our_epoch   = eval { _epoch_of_datetime( $our_age,   'Created at' ) };
+    return $their_epoch < $our_epoch ? ( 1, 'age' ) : ( 0, undef )
+      if defined $their_epoch && defined $our_epoch;
     return $their_age lt $our_age ? ( 1, 'age' ) : ( 0, undef );
+}
+
+# The same DST fall-back trap _outranks_for_work has: created_at is local
+# time with a dynamically computed UTC offset, so two strings straddling a
+# fall-back sort backward from real elapsed time. TKT-1159.
+sub _created_at_order {
+    my ( $a, $b ) = @_;
+    my $a_epoch = eval { _epoch_of_datetime( $a->{created_at} // '', 'Created at' ) };
+    my $b_epoch = eval { _epoch_of_datetime( $b->{created_at} // '', 'Created at' ) };
+    return $a_epoch <=> $b_epoch if defined $a_epoch && defined $b_epoch;
+    return ( $a->{created_at} // '' ) cmp( $b->{created_at} // '' );
 }
 
 sub _queue_columns {
@@ -12608,7 +12630,7 @@ sub work_order {
     my @ordered = sort {
         ( $next_ref{ $b->{ref} } ? 1 : 0 ) <=> ( $next_ref{ $a->{ref} } ? 1 : 0 )
           || $b->{priority} <=> $a->{priority}
-          || ( $a->{created_at} // '' ) cmp( $b->{created_at} // '' )
+          || _created_at_order( $a, $b )
           || ( $a->{ref} // '' ) cmp( $b->{ref} // '' )
     } @waiting;
 

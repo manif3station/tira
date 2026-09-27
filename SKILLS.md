@@ -2719,6 +2719,18 @@ same convention TKT-1098 already used for `lib/Tira.pm` - leaving the code at
 429 lines with the tables untouched and `perldoc Tira::CLI::Options` finding
 identical documentation either way.
 
+**A DST fall-back reversed who had waited longer (TKT-1159, 5.216).**
+`_outranks_for_work`'s age tie-break and `work_order`'s own sort both compared
+two cards' `created_at` with Perl's plain string operators. `created_at` is
+written in the machine's LOCAL time with a dynamically computed UTC offset, so
+a card created just before a DST fall-back (clocks going back an hour) and one
+created a few minutes later, after the fall-back, get strings whose local
+wall-clock time goes backward even though real time moved forward - '01:59'
+sorts after '01:01' lexically, regardless of which one the clock actually hit
+first. Both call sites now route through `_epoch_of_datetime` (a new shared
+`_created_at_order` helper for `work_order`'s sort) before comparing, falling
+back to the string comparison only if a stamp fails to parse.
+
 **A third cost was paid once and then removed (TKT-835, 5.26).** A test that
 opens `lib/Tira.pm` by name is asserting where code lives while claiming to
 assert something else, so it breaks on a lift that broke nothing - and the

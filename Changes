@@ -1,5 +1,12 @@
 Revision history for Tira
 
+5.216  2026-09-27
+    - TKT-1159: _outranks_for_work's age tie-break and work_order's own sort
+      compared created_at as raw local-offset strings, so two cards created
+      either side of a DST fall-back sorted backward from real elapsed time -
+      the genuinely older card lost its own age tie-break. Both call sites
+      now route through _epoch_of_datetime before comparing.
+
 5.215  2026-09-27
     - TKT-1164: lib/Tira/CLI/Options.pm crossed the 500-line rule (TKT-730's
       own numeric_field entry tipped it from 499 to 508), but 77 of those

@@ -1,5 +1,13 @@
 Revision history for Tira
 
+5.224  2026-09-27
+    - TKT-1168: upgrade-gate review of the 5.191 -> 5.221 Changes text
+      (tira.policy.undeclared, run and answered empty). All 30 entries in
+      that range checked individually - none introduces board-observable
+      behavior needing a new police rule, decline, or update to an
+      existing declaration on this board; no code change made by this
+      review. Same shape as the 5.192 review (TKT-1152).
+
 5.223  2026-09-27
     - TKT-1166: record_list(sum=>FIELD, count=>1) returned only
       {count=>N} - the sum computed during the same walk was silently

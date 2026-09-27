@@ -16,8 +16,9 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
 
-use lib 'lib';
+use lib 'lib', 't/lib';
 use Tira;
+use Suite qw(engine_source);
 
 my $A = '2026-10-25T01:59:00+0100';    # 00:59 UTC - genuinely earlier
 my $B = '2026-10-25T01:01:00+0000';    # 01:01 UTC - genuinely later
@@ -115,17 +116,19 @@ is( Tira::_last_updated_order( 'not a date', 'also not a date' ),
 # appear at either site.
 
 {
-    open my $fh, '<', 'lib/Tira.pm' or die "Cannot read lib/Tira.pm: $!";
-    my @lines = <$fh>;
-    close $fh;
+    # Asked of "the engine" rather than of lib/Tira.pm by name, the same
+    # reason work_order's own sort test reads engine_source() instead of
+    # opening a file - a lift that moves either function to a sibling
+    # module (TKT-746's own ongoing decomposition) must not break this.
+    my @lines = split /\n/, engine_source();
 
     my ($announce_start) = grep { $lines[$_] =~ /^sub _announce_moves/ } 0 .. $#lines;
     my ($agent_start)    = grep { $lines[$_] =~ /^sub _agent_last_acted/ } 0 .. $#lines;
     ok( defined $announce_start && defined $agent_start,
         'found both functions to inspect' );
 
-    my $announce_body = join '', @lines[ $announce_start .. $announce_start + 40 ];
-    my $agent_body     = join '', @lines[ $agent_start .. $agent_start + 25 ];
+    my $announce_body = join "\n", @lines[ $announce_start .. $announce_start + 40 ];
+    my $agent_body     = join "\n", @lines[ $agent_start .. $agent_start + 25 ];
 
     unlike( $announce_body, qr/\$record->\{last_updated\}\s*le\s*\$already/,
         '_announce_moves no longer compares last_updated with a raw le' );

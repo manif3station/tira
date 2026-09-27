@@ -29,6 +29,11 @@ Since 5.162 (TKT-1131), `tira.doctor` also detects a record already
 corrupted that way before 5.161 shipped - the JSON is valid, just the
 wrong shape - and `--repair` resets the field to `[]`, alongside its
 existing invalid-UTF-8-byte check.
+Since 5.212 (TKT-726), the `card-sandbox-missing` police rule can verify a
+sandbox that is its own independent git clone rather than a worktree of
+the declared project repository - it asks the claimed path directly with
+git instead of only searching for it among the declared repository's own
+worktrees.
 Since 5.89, `gate.add --details` refuses a whitespace-only value the same
 way it refuses an empty one — the last of this "required explanation"
 field family (evidence, checklist, required-action) still testing for

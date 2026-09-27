@@ -1,5 +1,16 @@
 Revision history for Tira
 
+5.212  2026-09-27
+    - TKT-726: card-sandbox-missing could not verify a sandbox that is an
+      independent clone (its own .git, its own remote) - it only enumerated
+      the main checkout's branches and worktrees, so a card whose sandbox was
+      a correctly checked-out clone was reported missing a sandbox it had.
+      Michael's answer to Q-189: when the claimed sandbox is not among the
+      declared repository's own worktrees, the rule now runs git directly
+      against the card's own recorded sandbox path instead of only searching
+      for it - is it a git repository at all, and if so, is its checked-out
+      branch the card's own ref.
+
 5.211  2026-09-27
     - TKT-727: the police violation ledger's settle test has only ever
       meant "absent from this pass's findings", never "re-checked and

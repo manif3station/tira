@@ -1251,6 +1251,17 @@ with no `--ref` merges every per-card decline in alongside the
 board-wide list - before this it silently reported only the board-wide
 subset, under-counting with nothing indicating it was scoped.
 
+`card-sandbox-missing` can verify a sandbox that is its own independent
+clone, **since 5.212 (TKT-726)**. The rule still checks the declared
+repository's own `git worktree list` first - the common, zero-cost case -
+but a claimed sandbox absent from that list is no longer called missing on
+the spot: some projects deliberately give each card its own clone (its own
+`.git`, its own remote, developer-dashboard's report against DD-652), which
+can never appear as a worktree of a *different* repository no matter how
+correctly it is set up. The rule now asks the claimed path directly instead
+- is it a git repository, and if so, is its checked-out branch the card's
+own ref - before calling it missing.
+
 `checklist-idle`'s message is **Fixed.** on a checklist that is
 100% complete it now says "checklist complete since TIMESTAMP - move
 the card, there is nothing left to tick" instead of "no checklist

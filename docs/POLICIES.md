@@ -2020,6 +2020,27 @@ hits a filesystem boundary it refuses to cross. The check now requires a
 FILE (a worktree or submodule's `gitdir:` pointer) is unaffected, since only
 git itself ever creates one.
 
+**A sandbox that is its own independent clone, since TKT-726.** The check
+above still asks first whether the card's claimed `sandbox` path is among the
+declared repository's own worktrees (`git worktree list`) - the common,
+zero-cost case. When it is not, the rule no longer calls that a violation on
+the spot: some projects deliberately give each card its own clone, with its
+own `.git` and its own remote (a developer-dashboard report, TKT-726),
+because a clone can be verified against its own remote independently. A
+clone is never a worktree of a *different* repository, so it could never
+appear in that list no matter how correctly it was set up, and the rule used
+to accuse a healthy card of a missing sandbox it in fact had. It now asks
+the claimed path directly instead of only searching for it: is it a git
+repository at all (`Tira::CLI::Serve::_is_repository`), and if so, is its
+checked-out branch (`git -C $claimed rev-parse --abbrev-ref HEAD`) the
+card's own ref? Only then is the sandbox missing:
+
+    the work tree it records, /home/mv/Sandbox/ddd/DD-652, which is not a git
+    repository at all
+
+    the work tree it records, /home/mv/Sandbox/ddd/DD-652, which is a git
+    repository but is checked out to 'main', not DD-652
+
 ## A card police cannot read
 
 A board reported nothing at all: zero violations across twenty-seven declared

@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.210';
+our $VERSION = '5.212';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -11787,16 +11787,30 @@ sub _police_environment_violations {
                 }
                 elsif ( !$worktree{$claimed} ) {
 
-                    # How many came back, because none is a different fault from
-                    # one being gone: police pointed at a repository that does
-                    # not hold the work trees reports an empty list, and that
-                    # read exactly like a tree somebody had deleted.
-                    my $seen = scalar @{ $world->{worktrees} // [] };
-                    push @missing, $seen
-                      ? "the work tree it records, $claimed, which is not among the $seen "
-                        . 'the machine reported'
-                      : "the work tree it records, $claimed - the machine reported no work trees "
-                        . 'at all, which is what police watching the wrong repository looks like';
+                    # Not among the declared repository's own worktrees does
+                    # not mean gone - TKT-726, Q-189: a sandbox can be an
+                    # independent CLONE (its own .git, its own remote,
+                    # Michael's own per-ticket working pattern for some
+                    # projects), which can never be a worktree of a
+                    # different, declared repository and so can never appear
+                    # in $world->{worktrees} no matter how healthy it is.
+                    # Asked directly, rather than only searched for, before
+                    # it is called missing.
+                    require Tira::CLI::Serve;
+                    if ( !Tira::CLI::Serve::_is_repository($claimed) ) {
+                        push @missing, "the work tree it records, $claimed, which is not a git repository at all";
+                    }
+                    else {
+                        my ($checked_out) = @{ Tira::CLI::Serve::_reading(
+                            'git', '-C', $claimed, 'rev-parse', '--abbrev-ref', 'HEAD' ) };
+                        $checked_out //= '';
+                        if ( $checked_out ne $record->{ref} ) {
+                            push @missing, "the work tree it records, $claimed, which is a git repository "
+                              . ( $checked_out eq ''
+                                ? 'but has no branch checked out'
+                                : "but is checked out to '$checked_out', not $record->{ref}" );
+                        }
+                    }
                 }
                 next if !@missing;
 

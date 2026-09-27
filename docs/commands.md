@@ -1073,7 +1073,7 @@ Declare a policy.
 | `--read-age DURATION` | per rule | A shorter grace once something has been read (an answer-read-and-left-unjudged shape), for rules that carry both. Refused if longer than `--age` - a read-age that shortens nothing is not a read-age. |
 | `--max N` | per rule | A limit, for `wip-limit`. |
 | `--pattern TEXT` | per rule | What to match, for `leftover-process`. |
-| `--sandbox PATH` | per rule | Where worktrees live, for `card-sandbox-missing`. |
+| `--sandbox PATH` | per rule | Where worktrees live, for `card-sandbox-missing`. A card's own claimed sandbox not among those worktrees is checked directly with git rather than only searched for, since TKT-726 - it can be an independent clone. |
 | `--require FIELDS` | per rule | Comma-separated fields, for `card-metrics`. |
 | `--require-link TYPE` | per rule | The link a card must carry, for `card-unlinked`. |
 | `--link-to CARD` | no | Narrows `card-unlinked` to a link pointing at one card. |

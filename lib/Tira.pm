@@ -9970,7 +9970,7 @@ sub policy_evaluate {
             #
             # Discarded cards count. Setting one aside is a decision, and a
             # board whose only activity was tidying up has still been worked.
-            my ($moved) = sort { $b cmp $a } grep { defined }
+            my ($moved) = sort { _last_updated_order( $b, $a ) } grep { defined }
               map { $_->{last_updated} } @{$all};
 
             # An empty board is not a stuck board: nothing has moved for want of

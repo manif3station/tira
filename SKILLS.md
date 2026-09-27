@@ -2733,6 +2733,15 @@ first. Both call sites now route through `_epoch_of_datetime` (a new shared
 `_created_at_order` helper for `work_order`'s sort) before comparing, falling
 back to the string comparison only if a stamp fails to parse.
 
+**The same DST trap, for `last_updated` (TKT-1162, 5.217).** Four more call
+sites had the identical defect: `board-still`'s newest-move pick,
+`checklist-idle`'s latest-checklist-entry pick, `_announce_moves`'s two
+already-notified guards, and `_agent_last_acted`'s own newest-first sort all
+compared `last_updated` as a raw local-offset string. A Codex review during
+TKT-1159 found the fourth of these (`_agent_last_acted`) before this ticket's
+own scope named it. All four now route through a shared `_last_updated_order`
+helper, the `last_updated` counterpart to TKT-1159's `_created_at_order`.
+
 **A third cost was paid once and then removed (TKT-835, 5.26).** A test that
 opens `lib/Tira.pm` by name is asserting where code lives while claiming to
 assert something else, so it breaks on a lift that broke nothing - and the

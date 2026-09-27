@@ -2431,6 +2431,12 @@ its numeric field, `tira.<type>.update --ref REF --numeric-value N` (or
 `tira.<type>.create --numeric-value N`) sets it on any card, validated the
 same way `--priority` is - a plain number, `12` or `-3.5`.
 
+`tira.<type>.list --sum FIELD` reads the total back, composing with
+`--column` and `--where` exactly the way `--count` already does. JSON/toon
+output returns `{sum: N, records: [...]}`; human output prints `sum: N` on
+its own line before the record table. A card that never set the field is
+excluded from the total, not folded in as a silent zero.
+
 ```
 
 d2 tira.ticket.update --ref TKT-001 --author claude --details "..."   # refused

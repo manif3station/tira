@@ -70,13 +70,11 @@ sub run {
     ok( !$explained->{explained}, 'the real verdict: not explained - no comment exists at all' );
 }
 
-# --- the exact edge case this ticket was filed over, since generalized by
-#     TKT-1158 from a 5-second grace window to authoring ORDER: a comment
-#     written a full 10 seconds before the move (the real gap measured
-#     between two correctly-ordered back-to-back agent tool calls,
-#     TKT-735) still explains it, since it exists after the card's own
-#     previous transition (creation) and before the move - no width, wide
-#     or narrow, is being compared against any more. -----------------------
+# --- the exact edge case this ticket was filed over, since widened by
+#     TKT-1158 from a 5-second grace window to 30: a comment written a
+#     full 10 seconds before the move (the real gap measured between two
+#     correctly-ordered back-to-back agent tool calls, TKT-735) now falls
+#     comfortably inside the window and explains it. -----------------------
 
 {
     my $root = File::Spec->catdir( $tmp, 'edge' );
@@ -101,9 +99,7 @@ sub run {
     ok( $comment->{body_present}, 'shown as carrying a real body' );
     cmp_ok( $explained->{moved_epoch} - $comment->{epoch}, '==', 10,
         'the actual 10-second gap between the comment and the move is visible as a number, not reconstructed by hand' );
-    ok( $comment->{since_prior_move}, 'and shown as explaining the move by authoring order - '
-      . 'it exists after the previous transition (creation), a full 10 seconds before the move, '
-      . 'wider than the old 5-second grace window this generalizes away (TKT-1158)' );
+    ok( $comment->{within_grace}, 'and shown as within the grace window - GRACE_SECONDS is 30 since TKT-1158, this is 10' );
     ok( $explained->{explained}, 'the real verdict: explained - this is why discard-unexplained does not fire here' );
 }
 
@@ -292,10 +288,10 @@ never drift from the verdict.
 =head1 WHAT IS ASSERTED
 
 For discard-unexplained: the actual move-to-discard epoch and every
-comment's own epoch/order-based comparison are shown, not just the final
+comment's own epoch/grace-window comparison are shown, not just the final
 verdict - proved against both an unexplained card and the edge case that
-prompted this ticket (since generalized from a fixed grace window to
-authoring order by TKT-1158). A rule this command does not yet cover
+prompted this ticket (since widened from a 5-second grace window to 30 by
+TKT-1158). A rule this command does not yet cover
 (card-duration) is refused by name rather than guessed at.
 
 =cut

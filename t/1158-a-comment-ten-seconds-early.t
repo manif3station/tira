@@ -2,18 +2,21 @@
 # discard-unexplained's (and backward-move-unexplained's) fixed 5-second
 # grace window rejected a comment written a realistic-but-larger number of
 # seconds before the move it explains - measured 10s between two correctly-
-# ordered, back-to-back agent tool calls on TKT-735, this same session. Any
-# width tuned to look generous still eventually rejects the natural
-# "decide, write, then move" authoring order once real latency exceeds it.
+# ordered, back-to-back agent tool calls on TKT-735, this same session
+# (a card that went straight from backlog to discard, weeks after it was
+# created, with no move in between - the ordinary shape for a discard).
 #
-# TKT-1158's fix replaces the fixed window with an authoring-ORDER check: a
-# real comment explains a move if it exists anywhere from the PREVIOUS
-# transition onward, regardless of how many seconds separate it from the
-# move. This also deduplicates the computation - before this fix,
-# backward-move-unexplained carried its own inline copy of the same
-# grace-window logic discard-unexplained's own extracted helper used
-# (TKT-777/TKT-778's reasoning, copied rather than shared); both now call
-# the same _comments_explain_move.
+# TKT-1158's fix widens GRACE_SECONDS from 5 to 30 - a 3x safety margin over
+# the one measured real gap - rather than making the check unbounded by
+# authoring order: TKT-735's own card shows why an unbounded, order-based
+# "since the previous transition" check cannot work here. It had no column
+# move before its discard, only its own creation weeks earlier with an
+# unrelated comment soon after - measuring from creation would make that
+# old, unrelated comment "explain" the discard no matter how large the gap,
+# which is exactly the bug TKT-638 fixed and t/448/t/451 already guard
+# against. GRACE_SECONDS stays a small, bounded tolerance; TKT-1158 widens
+# it and deduplicates it into one shared _comments_explain_move, so
+# backward-move-unexplained no longer carries its own separate inline copy.
 
 use strict;
 use warnings;
@@ -51,7 +54,7 @@ my $tmp = tempdir( CLEANUP => 1 );
         project => $root, ref => $record->{ref}, type => 'ticket' ) );
     ok( $inputs->{explained},
         'a comment written 10 seconds before the discard move explains it - '
-      . 'authoring order, not a fixed width that this gap already exceeds (5 seconds)' );
+      . 'inside the widened 30-second grace window, which the old 5-second one rejected' );
 
     $tira->policy_add( project => $root, rule => 'discard-unexplained', action => 'bridge-reminder' );
     my $pass = $tira->police_pass( project => $root, store => File::Spec->catdir( $tmp, 'discard-store' ), world => {} );
@@ -88,28 +91,26 @@ my $tmp = tempdir( CLEANUP => 1 );
 
     my $pass = $tira->police_pass( project => $root, store => File::Spec->catdir( $tmp, 'backward-store' ), world => {} );
     is( scalar( grep { ( $_->{rule} // '' ) eq 'backward-move-unexplained' } @{ $pass->{violations} } ), 0,
-        'backward-move-unexplained does not fire - a comment 10 seconds before the backward move explains it too' );
+        'backward-move-unexplained does not fire - a comment 10 seconds before the backward move explains it too, '
+      . 'via the SAME shared helper discard-unexplained uses' );
 }
 
-# --- an unrelated comment from before the PREVIOUS transition still does not
-#     count - order-based, not "any comment the card ever had" (TKT-638's
-#     own original fix, preserved by the generalization) -------------------
+# --- control: a comment an HOUR before a backward move is still well
+#     outside the (widened, but still bounded) grace window - proves the
+#     shared helper enforces the same "small tolerance, not an unbounded
+#     search" discipline t/451 already proves for discard-unexplained ------
 
 {
-    my $root = File::Spec->catdir( $tmp, 'unrelated' );
+    my $root = File::Spec->catdir( $tmp, 'too-early' );
     my $now  = '2026-09-27T12:00:00+0100';
     my $tira = Tira->new( clock => sub {$now} );
     $tira->project_new(
-        name => 'Unrelated Comment', dir => $root, members => ['claude'],
+        name => 'Too Early', dir => $root, members => ['claude'],
         columns    => [ 'backlog', 'implement', 'qa', 'done' ],
-        sow_prefix => 'UNS', epic_prefix => 'UNE', ticket_prefix => 'UNT',
+        sow_prefix => 'TES', epic_prefix => 'TEE', ticket_prefix => 'TET',
     );
     $tira->policy_add( project => $root, rule => 'backward-move-unexplained', action => 'bridge-reminder' );
-    my $record = $tira->create_record( project => $root, type => 'ticket', title => 'Old comment does not cover a new backward move' );
-
-    $now = '2026-09-27T12:00:01+0100';
-    $tira->comment_add( project => $root, ref => $record->{ref}, author => 'claude',
-        text => 'Just a note from very early on, about something else entirely' );
+    my $record = $tira->create_record( project => $root, type => 'ticket', title => 'An hour is not "a moment ago"' );
 
     $now = '2026-09-27T12:04:00+0100';
     $tira->record_move( project => $root, ref => $record->{ref}, column => 'implement', author => 'claude' );
@@ -117,13 +118,17 @@ my $tmp = tempdir( CLEANUP => 1 );
     $now = '2026-09-27T12:05:00+0100';
     $tira->record_move( project => $root, ref => $record->{ref}, column => 'qa', author => 'claude' );
 
-    $now = '2026-09-27T12:10:00+0100';
+    $now = '2026-09-27T13:04:50+0100';
+    $tira->comment_add( project => $root, ref => $record->{ref}, author => 'claude',
+        text => 'Unrelated remark, an hour before the backward move' );
+
+    $now = '2026-09-27T14:05:00+0100';
     $tira->record_move( project => $root, ref => $record->{ref}, column => 'implement', author => 'claude' );
 
-    my $pass = $tira->police_pass( project => $root, store => File::Spec->catdir( $tmp, 'unrelated-store' ), world => {} );
+    my $pass = $tira->police_pass( project => $root, store => File::Spec->catdir( $tmp, 'too-early-store' ), world => {} );
     is( scalar( grep { ( $_->{rule} // '' ) eq 'backward-move-unexplained' } @{ $pass->{violations} } ), 1,
-        'a comment from before the PREVIOUS transition still does not explain THIS backward move - '
-      . 'order-based means relative to the right boundary, not "any comment ever"' );
+        'a comment roughly an hour before the backward move does NOT explain it - '
+      . 'the shared helper is still a small bounded tolerance (30s), not an unbounded backward search' );
 }
 
 # --- the computation is shared, not duplicated: exactly one subroutine -----
@@ -137,6 +142,9 @@ my $tmp = tempdir( CLEANUP => 1 );
     is( () = $body =~ /\$self->_comments_explain_move\(/g, 2,
         'called from exactly two places - discard-unexplained (via its own extracted helper) '
       . 'and backward-move-unexplained, neither carrying its own copy any more' );
+    is( () = $body =~ /\bGRACE_SECONDS\b/g, 6,
+        'exactly one GRACE_SECONDS definition, not two - the constant used to be declared '
+      . 'separately inside each rule\'s own copy of this computation' );
 }
 
 done_testing;

@@ -8031,41 +8031,48 @@ sub _required_item_is_exempt {
 }
 
 # Shared by discard-unexplained (via _discard_unexplained_inputs, below) and
-# backward-move-unexplained: "explained" is decided by comment AUTHORING
-# ORDER, not a fixed-width grace window. TKT-1158: a real comment counts as
-# explaining a move if it exists any time from the PREVIOUS transition
-# onward, regardless of how many seconds separate it from the move itself -
-# a fixed window (formerly GRACE_SECONDS=5, TKT-778) rejected the natural
-# "decide, write, then move" authoring order outright once real agent
-# tool-call latency exceeded it (measured 10s between two correctly-ordered
-# back-to-back tool calls, TKT-735). There is no width simultaneously wide
-# enough for that and narrow enough to exclude an unrelated comment from an
-# hour earlier, because the two are told apart by which side of the
-# PREVIOUS transition they fall on, not by width. Before this, each of the
-# two call sites carried its own copy of this exact computation - the same
-# class of drift risk TKT-1147 already fixed once for a different pair of
-# rules.
+# backward-move-unexplained: TKT-1158 widened GRACE_SECONDS from 5 to 30,
+# calibrated to measured real agent tool-call latency (10s between two
+# correctly-ordered back-to-back calls, TKT-735) with a 3x safety margin for
+# further variance in CLI dispatch, board I/O, and the harness's own
+# round-trip - while staying a SMALL tolerance for authoring order, not an
+# unbounded backward search for any prior comment (t/451's own explicit
+# control: a comment an HOUR before the move must still not satisfy this,
+# and t/448's: an old, unrelated comment from long before must still not
+# either - both already-shipped decisions this generalization must keep
+# holding, which an unbounded order-based check - the card's other offered
+# direction - cannot: a card's own creation is not a safe anchor either, per
+# TKT-735's real card, which had no move before its discard at all, only
+# create-then-discard weeks apart with an unrelated old comment in between -
+# were this comment measured as "since creation" it would wrongly explain
+# any later discard no matter the gap). Before this, each of the two call
+# sites carried its own copy of this exact computation - the same class of
+# drift risk TKT-1147 already fixed once for a different pair of rules.
+our $GRACE_SECONDS = 30;
+
 sub _comments_explain_move {
-    my ( $self, $record, $moved_epoch, $prior_epoch ) = @_;
+    my ( $self, $record, $moved_epoch ) = @_;
 
     my @comments = map {
         my $body_present = ( $_->{body} // '' ) =~ /\S/ ? 1 : 0;
         my $epoch = eval { _epoch_of_datetime( $_->{created_at}, 'Comment' ) };
-        {   created_at       => $_->{created_at},
-            epoch            => $epoch,
-            body_present     => $body_present,
+        {   created_at   => $_->{created_at},
+            epoch        => $epoch,
+            body_present => $body_present,
 
-            # No $prior_epoch (no earlier transition to anchor to) means any
-            # non-empty comment counts, the same "nothing else CAN be asked
-            # for" fallback TKT-777 introduced for a card with no history.
-            since_prior_move => $body_present && defined $moved_epoch
-              ? ( !defined $prior_epoch || ( $epoch // 0 ) >= $prior_epoch ? 1 : 0 )
+            # Matches the original inline comparison exactly: an unparseable
+            # timestamp on a real comment fell back to epoch 0 rather than
+            # being excluded outright, so it still counted as explanatory
+            # against a $moved_epoch at or before GRACE_SECONDS past 1970 (a
+            # valid, if unusual, discard time). Codex review, TKT-786.
+            within_grace => $body_present && defined $moved_epoch
+              ? ( ( $epoch // 0 ) >= $moved_epoch - $GRACE_SECONDS ? 1 : 0 )
               : undef,
         };
     } @{ $record->{comments} // [] };
 
     my $explained = defined $moved_epoch
-      ? ( grep { $_->{since_prior_move} } @comments ) ? 1 : 0
+      ? ( grep { $_->{within_grace} } @comments ) ? 1 : 0
       : ( grep { $_->{body_present} } @comments ) ? 1 : 0;
 
     return ( $explained, \@comments );
@@ -8082,18 +8089,13 @@ sub _discard_unexplained_inputs {
     # A comment, said so - but any comment the card ever had satisfied this,
     # including one written long before the discard about something else
     # entirely. A comment can only be the explanation for THIS discard if it
-    # exists at or after the PREVIOUS transition (or from the beginning of
-    # this card's history, if there was none), with a body that says
-    # something. TKT-638, generalized from a fixed grace window by TKT-1158.
-    my ( $moved_at, $prior_at, $running_prior );
+    # exists at or after the move that discarded the card, with a body that
+    # says something. TKT-638.
+    my $moved_at;
     for my $entry ( @{ $self->history_list(
         project => $root, ref => $record->{ref}, type => $record->{type}, field => 'column',
     ) } ) {
-        if ( ( $entry->{after} // '' ) eq 'discard' ) {
-            $moved_at = $entry->{at};
-            $prior_at = $running_prior;
-        }
-        $running_prior = $entry->{at};
+        $moved_at = $entry->{at} if ( $entry->{after} // '' ) eq 'discard';
     }
 
     # Compared as instants, not strings - Tira timestamps can legitimately
@@ -8101,17 +8103,15 @@ sub _discard_unexplained_inputs {
     # clock, and two of those sort wrong lexically even though one
     # genuinely comes after the other.
     my $moved_epoch = defined $moved_at ? eval { _epoch_of_datetime( $moved_at, 'Discard' ) } : undef;
-    my $prior_epoch = defined $prior_at ? eval { _epoch_of_datetime( $prior_at, 'Discard' ) } : undef;
 
-    my ( $explained, $comments ) = $self->_comments_explain_move( $record, $moved_epoch, $prior_epoch );
+    my ( $explained, $comments ) = $self->_comments_explain_move( $record, $moved_epoch );
 
     return {
-        moved_at    => $moved_at,
-        moved_epoch => $moved_epoch,
-        prior_at    => $prior_at,
-        prior_epoch => $prior_epoch,
-        comments    => $comments,
-        explained   => $explained,
+        moved_at      => $moved_at,
+        moved_epoch   => $moved_epoch,
+        grace_seconds => $GRACE_SECONDS,
+        comments      => $comments,
+        explained     => $explained,
     };
 }
 
@@ -10724,13 +10724,11 @@ sub policy_evaluate {
                 # explaining the move that actually landed it here, and an
                 # older backward move already explained (or not) at the time
                 # is not this pass's business to re-litigate.
-                my ( $last_before, $last_after, $last_at, $prior_at, $running_prior );
+                my ( $last_before, $last_after, $last_at );
                 for my $entry ( @{ $self->history_list(
                     project => $root, ref => $record->{ref}, type => $rtype, field => 'column',
                 ) } ) {
-                    $prior_at = $running_prior;
                     ( $last_before, $last_after, $last_at ) = ( $entry->{before}, $entry->{after}, $entry->{at} );
-                    $running_prior = $entry->{at};
                 }
                 next if !defined $last_before || !defined $last_after;
                 next if $last_before eq 'discard' || $last_after eq 'discard';
@@ -10740,14 +10738,13 @@ sub policy_evaluate {
                 # Same computation discard-unexplained applies to a comment
                 # (_comments_explain_move, TKT-1158) rather than its own
                 # unshared copy: it can only be THIS move's explanation if
-                # it exists from the PREVIOUS transition onward, with a body
-                # that says something - not any comment the card has ever
-                # carried, and not bounded by a fixed number of seconds
-                # either side of the move ($last_before/$last_after already
-                # require at least one history entry to reach this branch).
+                # it exists at or after the move that made it (within the
+                # same shared GRACE_SECONDS), with a body that says
+                # something - not any comment the card has ever carried
+                # ($last_before/$last_after already require at least one
+                # history entry to reach this branch).
                 my $moved_epoch = eval { _epoch_of_datetime( $last_at, 'Move' ) };
-                my $prior_epoch = defined $prior_at ? eval { _epoch_of_datetime( $prior_at, 'Move' ) } : undef;
-                my ($explained) = $self->_comments_explain_move( $record, $moved_epoch, $prior_epoch );
+                my ($explained) = $self->_comments_explain_move( $record, $moved_epoch );
                 next if $explained;
                 $report->( $policy, $record,
                     "moved backward from $last_before to $last_after with no reason given - "

@@ -2193,30 +2193,29 @@ listing what it does cover rather than leaving the caller to guess.
 
 **`discard-unexplained`** (`--ref REF --rule discard-unexplained`): the
 move-to-discard timestamp (or `undef` if the card was migrated in already
-discarded, with no history to anchor to), the PREVIOUS column transition's
-own timestamp (or `undef` if there was none), every comment's own timestamp
-and whether it falls at or after that previous transition, and the real
-`explained` verdict. Since 5.211 (TKT-1158) this is an authoring-ORDER
-check rather than a fixed grace window: a comment explains the move if it
-exists any time from the previous transition onward, regardless of how many
-seconds separate it from the move - no width is both wide enough for real
-agent tool-call latency (measured 10 seconds between two correctly-ordered
-back-to-back calls) and narrow enough to exclude an unrelated comment from
-long before. The rule's own body calls the identical helper
-(`_discard_unexplained_inputs`, which in turn calls the shared
-`_comments_explain_move`) and asks only for that verdict, so this command's
-explanation cannot drift from what the rule actually decided.
-`backward-move-unexplained` calls the same shared `_comments_explain_move`
-too, rather than carrying its own copy.
+discarded, with no history to anchor to), every comment's own timestamp and
+whether it falls within the grace window, and the real `explained` verdict.
+Since 5.211 (TKT-1158) `grace_seconds` is 30, not 5 - widened (a 3x safety
+margin) to cover real agent tool-call latency (measured 10 seconds between
+two correctly-ordered back-to-back calls), while staying a small, bounded
+tolerance rather than an unbounded backward search: a card can go straight
+from its own creation to a discard weeks later with an unrelated comment in
+between, so measuring from "the previous transition" instead of a bounded
+window would let that old comment wrongly explain the discard. The rule's
+own body calls the identical helper (`_discard_unexplained_inputs`, which
+in turn calls the shared `_comments_explain_move`) and asks only for that
+verdict, so this command's explanation cannot drift from what the rule
+actually decided. `backward-move-unexplained` calls the same shared
+`_comments_explain_move` too, rather than carrying its own copy.
 
 ```
 {
   "rule": "discard-unexplained", "ref": "TKT-763", "column": "discard",
   "moved_at": "2026-09-15T22:39:10+0100", "moved_epoch": 1789603150,
-  "prior_at": "2026-09-15T22:30:00+0100", "prior_epoch": 1789602600,
+  "grace_seconds": 30,
   "comments": [
     { "created_at": "2026-09-15T22:39:00+0100", "epoch": 1789603140,
-      "body_present": 1, "since_prior_move": 1 }
+      "body_present": 1, "within_grace": 1 }
   ],
   "explained": 1
 }

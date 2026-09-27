@@ -2704,6 +2704,17 @@ reads as "the table is empty" rather than "the table moved". It asks
 `t/lib/Suite.pm` for the command surface now, the same way seven engine tests
 were taught to ask for the engine on TKT-835.
 
+**`lib/Tira/CLI/Options.pm` crossed the 500-line rule from its own inline POD,
+not from the tables (TKT-1164, 5.215).** A single new `%OPTION_READ_BY` entry
+(TKT-730's `numeric_field`) tipped a file that had sat one line under the
+limit to 508 - but 77 of those 508 lines were the module's own `=head1` blocks,
+not `%MISLEADING_OPTIONS` or `%OPTION_READ_BY`. Splitting either table, or
+trimming their comments, would have cost the documentation those tables are
+valued for. The POD moved to a sibling `lib/Tira/CLI/Options.pod` instead - the
+same convention TKT-1098 already used for `lib/Tira.pm` - leaving the code at
+429 lines with the tables untouched and `perldoc Tira::CLI::Options` finding
+identical documentation either way.
+
 **A third cost was paid once and then removed (TKT-835, 5.26).** A test that
 opens `lib/Tira.pm` by name is asserting where code lives while claiming to
 assert something else, so it breaks on a lift that broke nothing - and the

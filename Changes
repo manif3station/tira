@@ -1,5 +1,14 @@
 Revision history for Tira
 
+5.215  2026-09-27
+    - TKT-1164: lib/Tira/CLI/Options.pm crossed the 500-line rule (TKT-730's
+      own numeric_field entry tipped it from 499 to 508), but 77 of those
+      lines were the module's own inline POD, not %MISLEADING_OPTIONS or
+      %OPTION_READ_BY. Moved the POD to a sibling lib/Tira/CLI/Options.pod -
+      the same convention TKT-1098 used for lib/Tira.pm - dropping the code
+      to 429 lines without touching either table. t/524's stopgap exemption
+      for this file is removed, not refreshed.
+
 5.214  2026-09-27
     - TKT-1163: t/1098-a-count-nothing-connects-to-its-file.t's line-count
       guard was silently failing on master - two present-tense claims

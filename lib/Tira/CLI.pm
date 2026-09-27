@@ -897,15 +897,18 @@ sub run {
 
     if ( $option{output} eq 'human' && $option{count} && ref $result eq 'HASH' ) {
         print "$result->{count}\n";
+        print "sum: $result->{sum}\n" if exists $result->{sum};
         return _finish( $tira, \%option, $command, 0 );
     }
 
     # TKT-730. --sum's own result carries the total alongside the ordinary
-    # record list (unlike --count, which replaces it) - printed once here for
-    # human output, then unwrapped back to the plain record array so the
-    # normal per-record rendering below still runs unchanged. json/toon
-    # output needs none of this: format_output encodes the {sum, records}
-    # hash generically, same as it always has for any other hashref result.
+    # record list - printed once here for human output, then unwrapped back
+    # to the plain record array so the normal per-record rendering below
+    # still runs unchanged. json/toon output needs none of this:
+    # format_output encodes the {sum, records} hash generically, same as it
+    # always has for any other hashref result. When --count is also given,
+    # the branch above already printed both lines and returned (TKT-1166) -
+    # this branch is unreached in that case.
     if ( $option{output} eq 'human' && defined $option{sum} && ref $result eq 'HASH' && exists $result->{sum} ) {
         print "sum: $result->{sum}\n";
         $result = $result->{records};

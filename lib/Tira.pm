@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.222';
+our $VERSION = '5.223';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2840,7 +2840,11 @@ sub record_list {
         } }, $board );
     }
     my $sorted = [ sort { $a->{ref} cmp $b->{ref} } @records ];
-    return { count => scalar @{$sorted} } if $args{count};
+    if ( $args{count} ) {
+        my $counted = { count => scalar @{$sorted} };
+        $counted->{sum} = $sum_total if $summing;
+        return $counted;
+    }
     return [ map { $_->{ref} } @{$sorted} ] if $args{refs_only};
     return { sum => $sum_total, records => $sorted } if $summing;
     return $sorted;

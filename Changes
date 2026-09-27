@@ -1,5 +1,15 @@
 Revision history for Tira
 
+5.223  2026-09-27
+    - TKT-1166: record_list(sum=>FIELD, count=>1) returned only
+      {count=>N} - the sum computed during the same walk was silently
+      discarded, because the count-return fired before the sum-return
+      ever ran. Same silent-drop class as TKT-1167/281/302/748. Fixed
+      by folding sum into the count-branch's own return when summing,
+      in both record_list (lib/Tira.pm) and the CLI's human-output
+      count branch (lib/Tira/CLI.pm) - both now return/print {count,
+      sum} together rather than picking one silently.
+
 5.222  2026-09-27
     - TKT-1167: record_list(sum => FIELD, refs_only => 1) silently dropped
       the sum - refs_only's own return fires before the sum-return, so the

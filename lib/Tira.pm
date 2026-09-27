@@ -11835,7 +11835,18 @@ sub _police_environment_violations {
                     # it is called missing.
                     require Tira::CLI::Serve;
                     if ( !Tira::CLI::Serve::_is_repository($claimed) ) {
-                        push @missing, "the work tree it records, $claimed, which is not a git repository at all";
+
+                        # Not a git repository at all does not mean nobody
+                        # else's work trees exist - the count the machine
+                        # actually reported is still worth saying, the same
+                        # diagnostic this branch had before TKT-726 folded in
+                        # the independent-clone check.
+                        my $seen = scalar @{ $world->{worktrees} // [] };
+                        push @missing, $seen
+                          ? "the work tree it records, $claimed, which is not a git repository at all - "
+                            . "and not among the $seen the machine reported as worktrees of the declared repo either"
+                          : "the work tree it records, $claimed, which is not a git repository at all - "
+                            . 'the machine reported no work trees at all either';
                     }
                     else {
                         my $lines = Tira::CLI::Serve::_reading(

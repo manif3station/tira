@@ -23,16 +23,22 @@ open my $fh, '<', $skills_md or die "cannot read $skills_md: $!";
 my $text = do { local $/; <$fh> };
 close $fh;
 
+# Anchor on the whole paragraph (bounded by blank lines) rather than two
+# independent whole-file regexes, so neither assertion can be satisfied by
+# an unrelated occurrence elsewhere in the file.
+my ($paragraph) = $text =~ /(A column can also name what must be done before a card leaves it:.*?)\n\n/s;
+ok( $paragraph, 'found the TKT-455 required-action-reset paragraph in SKILLS.md' );
+
 like(
-    $text,
+    $paragraph,
     qr/TKT-455\.\s+A reset item can be re-marked `done` by honestly restating unchanged evidence, without inventing new substance/,
-    'SKILLS.md\'s TKT-455 paragraph explicitly says a re-walked required item\'s proof may honestly restate unchanged evidence rather than needing invented substance'
+    'that paragraph explicitly says a re-walked required item\'s proof may honestly restate unchanged evidence rather than needing invented substance'
 );
 
 like(
-    $text,
+    $paragraph,
     qr/exact match of the stored `\(command, proof\)` pair, not a check of whether the underlying fact changed/,
-    'the clarification correctly describes _refuse_reused_proof as an exact-match check, not a semantic one'
+    'the clarification, in that same paragraph, correctly describes _refuse_reused_proof as an exact-match check, not a semantic one'
 );
 
 done_testing();

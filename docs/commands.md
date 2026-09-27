@@ -2424,6 +2424,14 @@ d2 tira.project.update --mode chain   # refused
 d2 tira.ticket.update --ref TKT-001 --numeric-field amount   # refused
   record.update does not act on --numeric-field. Use tira.project.update
   --numeric-field NAME, which is the command that declares it.
+```
+
+`--numeric-value` is the counterpart card field: once a board has declared
+its numeric field, `tira.<type>.update --ref REF --numeric-value N` (or
+`tira.<type>.create --numeric-value N`) sets it on any card, validated the
+same way `--priority` is - a plain number, `12` or `-3.5`.
+
+```
 
 d2 tira.ticket.update --ref TKT-001 --author claude --details "..."   # refused
   record.update does not act on --details. Use tira.gate.add --details TEXT,

@@ -189,9 +189,9 @@ while ( $table_block =~ /\n    ([a-z_]+) => \{(.*?)\n    \},/gs ) {
 # Exact, not a floor: a '>=' here would still pass if the /x-flagged
 # entries (text, status) silently dropped out of parsing again, the same
 # regression Codex review caught once already (10 parsed instead of the
-# real 12).
-is( scalar keys %OPTION_READ_BY, 12,
-    'parsed all 12 %OPTION_READ_BY entries, not a silently-shrunk subset' );
+# real 12) - 13 since TKT-730 added numeric_field.
+is( scalar keys %OPTION_READ_BY, 13,
+    'parsed all 13 %OPTION_READ_BY entries, not a silently-shrunk subset' );
 
 my @mismatches;
 for my $name ( sort keys %OPTION_READ_BY ) {

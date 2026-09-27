@@ -2,16 +2,17 @@ Revision history for Tira
 
 5.229  2026-09-27
     - TKT-1170: the "stalls inside policy_add" reading of the recurring
-      d2 dev.run --coverage lib/Tira.pm hang was itself wrong. policy_add
-      measures unremarkable (201 lines, 22 branches, the 269th of 447
-      subs); the stall is consistent with the whole-file Devel::Cover
+      d2 dev.run --coverage lib/Tira.pm hang was itself unsupported.
+      policy_add measures unremarkable (201 lines, 22 branches, the 269th
+      of 447 subs); the evidence points to whole-file Devel::Cover
       instrumentation cost compounding with host memory pressure under
       concurrent multi-fork Docker load (793Mi free / 11Gi swap active
-      measured), matching TKT-825's and TKT-969's own earlier findings
-      about Devel::Cover overhead under load. No code changed - decomposing
-      policy_add would fix nothing since it was never the real bottleneck.
-      Documented in SKILLS.md so the existing fallback (plain suite +
-      dedicated test) now has a real explanation.
+      measured) as the more likely cause, matching TKT-825's and TKT-969's
+      own earlier findings about Devel::Cover overhead under load - not a
+      definitive proof, but a plausible, evidence-backed explanation.
+      Decomposing policy_add is not supported as a fix by this evidence,
+      so no code changed. Documented in SKILLS.md so the existing
+      fallback (plain suite + dedicated test) now has a real explanation.
 
 5.228  2026-09-27
     - TKT-643: no police rule ever swept for a required_item still unmet

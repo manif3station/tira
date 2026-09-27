@@ -227,17 +227,6 @@ my %EXEMPT = (
       . 'bridge output, settling and escalation are the point of this '
       . 'end-to-end test - one concern, do not split',
 
-    # TKT-730 added one legitimate %OPTION_READ_BY entry (numeric_field) to
-    # a file that already sat at 499 lines, one under the limit - the same
-    # dense, well-commented shape TKT-837 originally lifted this file in.
-    # TKT-1164 owns deciding whether to split %MISLEADING_OPTIONS/
-    # %OPTION_READ_BY further or declare them one concern, the same choice
-    # TKT-1092 already made for lib/Tira.pm.
-    'lib/Tira/CLI/Options.pm' => 'the option guard tables (TKT-837) sat at '
-      . '499 lines, one under the limit, before TKT-730 added a single '
-      . 'legitimate entry - TKT-1164 owns deciding whether to split '
-      . '%MISLEADING_OPTIONS/%OPTION_READ_BY further or declare them one '
-      . 'concern the way TKT-1092 did for lib/Tira.pm',
 );
 
 my @files = perl_files();

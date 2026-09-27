@@ -25,6 +25,9 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
 
+use lib 't/lib';
+use Suite;
+
 use lib 'lib';
 use Tira;
 
@@ -134,9 +137,7 @@ my $tmp = tempdir( CLEANUP => 1 );
 # --- the computation is shared, not duplicated: exactly one subroutine -----
 
 {
-    open my $fh, '<', 'lib/Tira.pm' or die $!;
-    my $body = do { local $/; <$fh> };
-    close $fh;
+    my $body = Suite::engine_source();
     is( () = $body =~ /\bsub _comments_explain_move\b/g, 1,
         'exactly one definition of the shared explained-by-comment computation' );
     is( () = $body =~ /\$self->_comments_explain_move\(/g, 2,

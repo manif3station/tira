@@ -68,8 +68,9 @@ done_testing();
 
 =head1 NAME
 
-1172-a-hot-file-race-that-only-a-commit-can-close.t - documents the
-concurrent-agent hot-file race and its procedural mitigation
+1172-a-hot-file-race-and-its-mitigation.t - documents the concurrent-agent
+hot-file race and its procedural mitigation (which narrows the race window,
+not closes it)
 
 =head1 DESCRIPTION
 

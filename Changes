@@ -1,5 +1,14 @@
 Revision history for Tira
 
+5.214  2026-09-27
+    - TKT-1163: t/1098-a-count-nothing-connects-to-its-file.t's line-count
+      guard was silently failing on master - two present-tense claims
+      (README.md's lib/Tira/CLI.pm and lib/Tira.pm counts, SKILLS.md's
+      lib/Tira.pm count) had gone stale as those modules grew, and this was
+      the real, previously-undiagnosed cause behind several concurrent
+      forks' gate.run failures this session. Corrected to the real counts;
+      no behavior change.
+
 5.213  2026-09-27
     - TKT-730: filed from a budgeting use of Tira, where a board is a bank
       account, a column is a savings pod, and a card's balance had no way

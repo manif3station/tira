@@ -774,11 +774,21 @@ field (C<numeric_value>, set via C<project_update>'s C<numeric_field>)
 across the records the same filters (C<column>, C<where>, and the rest)
 already narrowed to, and returns C<< { sum => N, records => [...] } >>
 rather than the bare array - the total rides alongside the ordinary
-output, unlike C<count>, which replaces it. C<sum>'s argument must name
-the field actually declared for this board; a mismatch, or no field
-declared at all, dies rather than silently totalling nothing. A record
-that never set C<numeric_value> is excluded from the total, not folded in
-as a zero.
+output. C<sum>'s argument must name the field actually declared for this
+board; a mismatch, or no field declared at all, dies rather than silently
+totalling nothing. A record that never set C<numeric_value> is excluded
+from the total, not folded in as a zero.
+
+Combined with C<count> (since 5.223, TKT-1166), both are returned
+together - C<< { count => N, sum => N } >> - rather than C<count>
+unconditionally winning and silently discarding the total the way it did
+before.
+
+Combined with C<refs_only> (since 5.222, TKT-1167), the two are refused
+together instead of composed: C<refs_only>'s own return is a bare
+arrayref of refs, not a hashref, so folding a sum into it would change
+what every existing C<refs_only> caller gets back rather than silently
+dropping one value or the other.
 
 Every column, including C<discard>, is always in the result - there is no
 C<include_discard> to read here, deliberately: excluding discard is each

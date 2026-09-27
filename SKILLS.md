@@ -920,7 +920,15 @@ follows. `--sum` composes with `--column` and `--where` exactly the way
 shown — and a card that never set the field is excluded from the total
 rather than folded in as a silent zero. Naming a field other than the one
 declared for the board, or summing before any field has been declared at
-all, exits 2 rather than returning an empty or misleading total.
+all, exits 2 rather than returning an empty or misleading total. `--sum`
+combined with `--count` returns both together (TKT-1166) — `{count, sum}`
+for `-o json`/`-o toon`, and both lines (`N`, then `sum: N`) for
+`-o human` — rather than `--count` winning unconditionally and silently
+discarding the total the way it did before 5.223. `--sum` combined with
+`--refs-only` is refused instead of composed (TKT-1167, since 5.222):
+`--refs-only`'s own return is a bare arrayref of refs, not a hashref, so
+folding a sum into it would change what every existing `--refs-only`
+caller gets back rather than silently dropping one value or the other.
 Brief and truncation are **Implemented.** on show, list, and
 export. `--brief` is exactly `ref,title,column,sdlc_gate,assignee` — a
 shorthand for the equivalent `--fields` list, never a special case — with

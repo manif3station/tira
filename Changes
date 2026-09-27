@@ -1,5 +1,22 @@
 Revision history for Tira
 
+5.225  2026-09-27
+    - TKT-636: SKILLS.md's TKT-455 paragraph (the backward-move
+      required-item reset) now says explicitly that a reset item can be
+      re-marked done by honestly restating unchanged evidence, without
+      inventing new substance - required_item_update's duplicate-proof
+      refusal is an exact match of the stored (command, proof) pair, not
+      a check of whether the underlying fact changed, so a proof stating
+      re-verification of unchanged evidence is accepted provided it does
+      not exactly repeat the pair already on file. Reported from
+      zen-framework: a card returned to an earlier column for a review
+      finding measured 76 fresh required proofs owed for a 26-line prose
+      change, and the fear that they must all be newly-worded was the gap
+      this closes. Whether the reset itself should skip items whose
+      evidence provably could not have changed is a separate design
+      question, raised as Q-193 rather than decided here, matching
+      TKT-616's own precedent.
+
 5.224  2026-09-27
     - TKT-1168: upgrade-gate review of the 5.191 -> 5.221 Changes text
       (tira.policy.undeclared, run and answered empty). All 30 entries in

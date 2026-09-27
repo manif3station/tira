@@ -70,21 +70,28 @@ sub run {
     ok( !$explained->{explained}, 'the real verdict: not explained - no comment exists at all' );
 }
 
-# --- the exact 1-second edge case this ticket was filed over ------------------
+# --- the exact edge case this ticket was filed over, since generalized by
+#     TKT-1158 from a 5-second grace window to authoring ORDER: a comment
+#     written a full 10 seconds before the move (the real gap measured
+#     between two correctly-ordered back-to-back agent tool calls,
+#     TKT-735) still explains it, since it exists after the card's own
+#     previous transition (creation) and before the move - no width, wide
+#     or narrow, is being compared against any more. -----------------------
 
 {
     my $root = File::Spec->catdir( $tmp, 'edge' );
-    my $tira = Tira->new( clock => sub {'2026-09-15T22:39:10+0100'} );
+    my $now  = '2026-09-15T22:30:00+0100';
+    my $tira = Tira->new( clock => sub {$now} );
     $tira->project_new(
         name => 'Edge', dir => $root, members => ['claude'],
         columns    => [ 'backlog', 'done', 'discard' ],
         sow_prefix => 'EDS', epic_prefix => 'EDE', ticket_prefix => 'EDT',
     );
     my $record = $tira->create_record( project => $root, type => 'ticket', title => 'Edge case' );
-    $tira->{clock} = sub {'2026-09-15T22:39:09+0100'};
+    $now = '2026-09-15T22:39:00+0100';
     $tira->comment_add( project => $root, ref => $record->{ref}, type => 'ticket',
         text => 'Setting this aside, superseded by another card', author => 'claude' );
-    $tira->{clock} = sub {'2026-09-15T22:39:10+0100'};
+    $now = '2026-09-15T22:39:10+0100';
     $tira->record_move( project => $root, ref => $record->{ref}, type => 'ticket', column => 'discard', author => 'claude' );
 
     my ( undef, $json ) = run( $tira, $root, 'police.explain', '-o', 'json', '--ref', $record->{ref}, '--rule', 'discard-unexplained' );
@@ -92,9 +99,11 @@ sub run {
     is( scalar @{ $explained->{comments} }, 1, 'the one comment that exists is shown, not just counted' );
     my $comment = $explained->{comments}[0];
     ok( $comment->{body_present}, 'shown as carrying a real body' );
-    cmp_ok( $explained->{moved_epoch} - $comment->{epoch}, '==', 1,
-        'the actual 1-second gap between the comment and the move is visible as a number, not reconstructed by hand' );
-    ok( $comment->{within_grace}, 'and shown as within the grace window - GRACE_SECONDS is 5, this is 1' );
+    cmp_ok( $explained->{moved_epoch} - $comment->{epoch}, '==', 10,
+        'the actual 10-second gap between the comment and the move is visible as a number, not reconstructed by hand' );
+    ok( $comment->{since_prior_move}, 'and shown as explaining the move by authoring order - '
+      . 'it exists after the previous transition (creation), a full 10 seconds before the move, '
+      . 'wider than the old 5-second grace window this generalizes away (TKT-1158)' );
     ok( $explained->{explained}, 'the real verdict: explained - this is why discard-unexplained does not fire here' );
 }
 
@@ -283,9 +292,10 @@ never drift from the verdict.
 =head1 WHAT IS ASSERTED
 
 For discard-unexplained: the actual move-to-discard epoch and every
-comment's own epoch/grace-window comparison are shown, not just the final
-verdict - proved against both an unexplained card and the exact 1-second
-edge case that prompted this ticket. A rule this command does not yet
-cover (card-duration) is refused by name rather than guessed at.
+comment's own epoch/order-based comparison are shown, not just the final
+verdict - proved against both an unexplained card and the edge case that
+prompted this ticket (since generalized from a fixed grace window to
+authoring order by TKT-1158). A rule this command does not yet cover
+(card-duration) is refused by name rather than guessed at.
 
 =cut

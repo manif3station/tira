@@ -16114,6 +16114,13 @@ sub _empty_linkage {
 }
 
 
+# TKT-1172. This lock (and _with_enforcement_lock below) protects board
+# records under TIRA_HOME only - it has no reach into this skill's own
+# source tree (Changes, .env, lib/Tira.pm itself), which a concurrent
+# development/agent session edits directly with no lock at all. See
+# SKILLS.md's "Concurrency and transaction semantics" for the real
+# incident and the accepted mitigation (commit a hot-file edit
+# immediately).
 sub _with_project_lock {
     my ( $self, $root, $code ) = @_;
 

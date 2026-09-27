@@ -425,5 +425,3 @@ sub misleading_for {
 }
 
 1;
-
-=cut

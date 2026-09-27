@@ -185,6 +185,7 @@ my %intentionally_pod_free = (
     'lib/Tira/Render.pm'             => 1,
     'lib/Tira/CLI/Backup.pm'         => 1,
     'lib/Tira/CLI/Police/World.pm'   => 1,
+    'lib/Tira/CLI/Options.pm'        => 1,
 );
 for my $file (@perl_files) {
     if ( $intentionally_pod_free{$file} ) {

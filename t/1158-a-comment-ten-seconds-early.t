@@ -148,3 +148,26 @@ my $tmp = tempdir( CLEANUP => 1 );
 }
 
 done_testing;
+
+__END__
+
+=head1 NAME
+
+1158-a-comment-ten-seconds-early.t - a comment explaining a move stays within a bounded grace window, widened past real latency
+
+=head1 DESCRIPTION
+
+discard-unexplained's (and backward-move-unexplained's) fixed 5-second
+grace window rejected a comment written a realistic-but-larger number of
+seconds before the move it explains - measured 10s between two correctly-
+ordered, back-to-back agent tool calls on TKT-735, this same session.
+
+TKT-1158's fix widens GRACE_SECONDS from 5 to 30 - a 3x safety margin over
+the one measured real gap - rather than making the check unbounded by
+authoring order: TKT-735's own card shows why an unbounded, order-based
+"since the previous transition" check cannot work here, since it had no
+column move before its discard at all. GRACE_SECONDS stays a small,
+bounded tolerance, and the computation is deduplicated into one shared
+C<_comments_explain_move> rather than each rule carrying its own copy.
+
+=cut

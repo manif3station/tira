@@ -755,7 +755,7 @@ guards the write, not the read. TKT-754.
 - `tira.project.update [--name TEXT] [--dashboard-host HOST] [--dashboard-port PORT]
   [--listen HOST[:PORT]] [--notify-after MINUTES] [--collector NAME]
   [--agent NAME] [--session ID] [--heartbeat MINUTES] [--repo PATH]
-  [-o FORMAT]` —
+  [--numeric-field NAME] [-o FORMAT]` —
   **Implemented.** Renames a project, and **Implemented.** remembers the address its live board should listen on:
   `--dashboard-host` takes `localhost`, `127.0.0.1`, `0.0.0.0`, or `any` as the
   plain-language form of every interface, and `--dashboard-port` takes 1-65535.
@@ -839,7 +839,7 @@ These symmetric forms are **Implemented.** for each `TYPE`:
 
 ```text
 tira.TYPE.show (--ref REF ...|--refs LIST) [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--if-changed HASH] [--brief] [--truncate N|--full] [-o FORMAT]
-tira.TYPE.list [--column SLUG] [--assignee ID] [--parent REF] [--label TEXT ...] [--text QUERY] [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--count] [--refs-only] [--brief] [--truncate N|--full] [--where CLAUSE ...] [-o FORMAT]
+tira.TYPE.list [--column SLUG] [--assignee ID] [--parent REF] [--label TEXT ...] [--text QUERY] [--fields LIST] [--exclude-fields LIST] [--include-empty] [--since TIMESTAMP] [--count] [--refs-only] [--sum FIELD] [--brief] [--truncate N|--full] [--where CLAUSE ...] [-o FORMAT]
 tira.TYPE.update --ref REF [record field arguments] [--author NAME] [-o FORMAT]
 tira.TYPE.move --ref REF --column SLUG [--author NAME] [-o FORMAT]
 tira.TYPE.discard --ref REF [-o FORMAT]
@@ -902,6 +902,25 @@ over refs-only wins over `--fields`, documented rather than guessed, and
 field names are still validated loudly even when projection is moot.
 With `-o human`, count prints a bare number and refs-only prints one ref
 per line, so both pipe straight into a shell.
+A board's own numeric field, and summing it, is **Implemented.**
+TKT-730 (filed from a budgeting use of Tira, where a column is a savings pod
+and a card's balance had no way to be totalled by the tool itself):
+`tira.project.update --numeric-field NAME` declares a single numeric field
+once per board — lowercase letters, digits and underscores, starting with a
+letter. Every card of that board can then set it with
+`tira.TYPE.update --numeric-value N` (a plain number, `12` or `-3.5`,
+validated the same way `--priority` is) or at creation with
+`tira.TYPE.create --numeric-value N`, and read it back like any other field
+via `show`/`list`. `tira.TYPE.list --sum FIELD` totals the declared field
+across the matched records and returns it alongside the normal record
+output — `{"sum": N, "records": [...]}` for `-o json`/`-o toon`; for
+`-o human` the total prints first (`sum: N`) and the ordinary record table
+follows. `--sum` composes with `--column` and `--where` exactly the way
+`--count` does — each narrows which records are summed, not just which are
+shown — and a card that never set the field is excluded from the total
+rather than folded in as a silent zero. Naming a field other than the one
+declared for the board, or summing before any field has been declared at
+all, exits 2 rather than returning an empty or misleading total.
 Brief and truncation are **Implemented.** on show, list, and
 export. `--brief` is exactly `ref,title,column,sdlc_gate,assignee` — a
 shorthand for the equivalent `--fields` list, never a special case — with
@@ -1541,7 +1560,7 @@ tira.column.apply --type TYPE --columns-json JSON [-o FORMAT]
 tira.collector.show [-o FORMAT]
 tira.collector.install [-o FORMAT]
 tira.collector.remove [-o FORMAT]
-tira.project.update [--notify-after MINUTES] [--collector NAME] [--agent NAME]
+tira.project.update [--notify-after MINUTES] [--collector NAME] [--agent NAME] [--numeric-field NAME]
                     [--session ID] [--heartbeat MINUTES] [-o FORMAT]
 tira.warning.list [-o FORMAT]
 tira.warning.add --message TEXT [-o FORMAT]
@@ -1550,7 +1569,7 @@ tira.notify.record --ref REF [--ref REF ...] --column SLUG [-o FORMAT]
 tira.notify.list [--ref REF ...] [-o FORMAT]
 tira.column.update --type TYPE --name SLUG [--notify-after MINUTES] [--watch|--no-watch] [--terminal|--no-terminal] [--queue|--no-queue] [--required-action TEXT ...] [--entry-required-action TEXT ...] [--required-action-if-touches "PATTERN,...=TEXT" ...] [--entry-required-action-if-touches "PATTERN,...=TEXT" ...] [--administrative-action TEXT ...] [--next SLUG ...] [-o FORMAT]
 tira.column.endings [--type TYPE] [-o FORMAT]
-tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [-o FORMAT]
+tira.<type>.list [--full] [--column SLUG] [--assignee ID] [--parent REF] [--text QUERY] [--sum FIELD] [-o FORMAT]
 tira.import --file FILE [--dry-run] [-o FORMAT]
 tira.import.jira --ref REF --file FILE --author ID [-o FORMAT]
 tira.changelog.check [--file FILE] [-o FORMAT]

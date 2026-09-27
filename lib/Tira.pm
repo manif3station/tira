@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.212';
+our $VERSION = '5.213';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -74,7 +74,7 @@ my @PLAIN_FIELDS = qw(title description problem_or_feature solution_needed sourc
   lifecycle fix_version sandbox agent_session);
 my @CARD_FIELDS = ( @PLAIN_FIELDS, qw(sdlc_gate assignee reporter priority due_date start_date
   labels affects_versions key_details deliverables acceptance test_steps bdd atdd
-  scope_in scope_out required_exempt) );
+  scope_in scope_out required_exempt numeric_value) );
 my @CARD_FIELD_REPLACEMENTS = qw(labels_replace affects_versions_replace
   key_details_replace deliverables_replace acceptance_replace test_steps_replace
   bdd_replace atdd_replace scope_in_replace scope_out_replace);
@@ -533,6 +533,7 @@ sub create_record {
     my $priority = $self->_valid_priority( $args{priority} );
     my $due_date = $self->_valid_datetime( $args{due_date}, 'Due date' );
     my $start_date = $self->_valid_datetime( $args{start_date}, 'Start date' );
+    my $numeric_value = $self->_valid_numeric_value( $args{numeric_value} );
     _valid_fix_version( $args{fix_version} );
     $self->_require_gate_name( root => $root, name => $args{sdlc_gate} );
     my $board = File::Spec->catdir( $root, '.tira', $type );
@@ -618,6 +619,7 @@ sub create_record {
                 sdlc_gate            => $args{sdlc_gate},
                 lifecycle            => $args{lifecycle},
                 priority             => $priority,
+                numeric_value        => $numeric_value,
                 fix_version          => $args{fix_version},
 
                 # Where the agent working this card is working. Made by
@@ -885,6 +887,18 @@ sub project_update {
             else {
                 $self->_require_active_person( %args, person => $args{agent} );
                 $data->{agent} = $args{agent};
+            }
+        }
+        # TKT-730. The board's single declared numeric field, named once so
+        # every card on the board can set it via record_update's own
+        # numeric_value slot - --sum FIELD on record_list checks its
+        # argument against this same name.
+        if ( defined $args{numeric_field} ) {
+            if ( $args{numeric_field} eq '' ) {
+                delete $data->{numeric_field};
+            }
+            else {
+                $data->{numeric_field} = _valid_numeric_field_name( $args{numeric_field} );
             }
         }
         if ( defined $args{upgrade_gate_type} ) {
@@ -2190,7 +2204,7 @@ my @RECORD_FIELDS = qw(
     gate_passing_log evidence attachments checklist checklist_done checklist_total required_items subtasks linkage assignee
     reporter labels due_date start_date sdlc_gate lifecycle priority
     fix_version affects_versions parent comments created_at last_updated column
-    content_hash attachment_count sandbox agent_session conversation required_exempt
+    content_hash attachment_count sandbox agent_session conversation required_exempt numeric_value
 );
 my %RECORD_FIELD = map { $_ => 1 } @RECORD_FIELDS;
 
@@ -2623,6 +2637,23 @@ sub record_list {
     my $root = $self->discover_project(%args);
     my $cached = defined $args{text} ? $self->_search_index_read($root) : undef;
 
+    # TKT-730. --sum FIELD only ever means the board's own single declared
+    # numeric field - checked against project.yml up front, so a typo'd or
+    # never-declared name dies loudly here rather than silently summing
+    # nothing over the whole walk below.
+    my $summing;
+    if ( defined $args{sum} ) {
+        my $project_data = $self->_load_yaml( File::Spec->catfile( $root, '.tira', 'project.yml' ) );
+        my $declared = $project_data->{numeric_field};
+        die "No numeric field is declared on this board yet - "
+          . "see tira.project.update --numeric-field NAME\n"
+          if !defined $declared;
+        die "Unknown numeric field '$args{sum}' - the declared numeric field on this board is '$declared'\n"
+          if $args{sum} ne $declared;
+        $summing = 1;
+    }
+    my $sum_total = 0;
+
     # TKT-1117: refs_only with none of the filters below asks for exactly
     # what the filename already names - "TKT-042.json" IS "TKT-042" -
     # so this specific call shape never needs the card's own content at
@@ -2773,6 +2804,13 @@ sub record_list {
                 return if !_where_matches( $full, $where );
                 delete @{$full}{ grep { $where_computed{$_} } qw(content_hash attachment_count) };
             }
+
+            # TKT-730. A card that never set the field is excluded from the
+            # total, not folded in as zero - the whole point being asked for
+            # is "the balance of the cards that HAVE an amount", and a silent
+            # zero would understate that the moment one card in the column
+            # was never given a value at all.
+            $sum_total += $record->{numeric_value} if $summing && defined $record->{numeric_value};
             $full->{content_hash} = _record_content_hash($full)
               if $plan && $plan->{fields} && $plan->{fields}{content_hash};
             $full->{attachment_count} = scalar @{ $record->{attachments} // [] }
@@ -2792,6 +2830,7 @@ sub record_list {
     my $sorted = [ sort { $a->{ref} cmp $b->{ref} } @records ];
     return { count => scalar @{$sorted} } if $args{count};
     return [ map { $_->{ref} } @{$sorted} ] if $args{refs_only};
+    return { sum => $sum_total, records => $sorted } if $summing;
     return $sorted;
 }
 
@@ -3098,6 +3137,7 @@ sub record_update {
             $record->{$field} = $args{$field} eq '' ? undef : $args{$field};
         }
         $record->{priority} = $self->_valid_priority( $args{priority} ) if defined $args{priority};
+        $record->{numeric_value} = $self->_valid_numeric_value( $args{numeric_value} ) if defined $args{numeric_value};
         $record->{due_date} = $self->_valid_datetime( $args{due_date}, 'Due date' ) if defined $args{due_date};
         $record->{start_date} = $self->_valid_datetime( $args{start_date}, 'Start date' ) if defined $args{start_date};
         if ( defined $args{labels} ) {
@@ -15080,6 +15120,30 @@ sub _exempt_entries {
     my $now = $self->{clock}->();
     return [ map { { item => $items[$_], reason => $reasons[$_], exempted_at => $now, author => $args{author} } }
         0 .. $#items ];
+}
+
+# TKT-730. A budgeting board's per-card amount, declared once per project
+# via project_update's --numeric-field and set on any card via this same
+# validated slot - deliberately a single plain number rather than a named
+# set of them, matching Michael's Q-191 answer.
+sub _valid_numeric_value {
+    my ( $self, $value ) = @_;
+    return undef if !defined $value || $value eq '';
+    die "Numeric value must be a plain number, for example 12 or -3.5\n"
+      if $value !~ /\A-?\d+(?:\.\d+)?\z/;
+    return 0 + $value;
+}
+
+# The name a board's declared numeric field is known by - lowercase so it
+# can never collide with an existing card field's own name, all of which are
+# lowercase already.
+sub _valid_numeric_field_name {
+    my ($name) = @_;
+    return undef if !defined $name || $name eq '';
+    die "Numeric field name must start with a lowercase letter and contain only "
+      . "lowercase letters, digits, and underscores\n"
+      if $name !~ /\A[a-z][a-z0-9_]{0,63}\z/;
+    return $name;
 }
 
 sub _require_active_person {

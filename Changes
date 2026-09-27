@@ -1,5 +1,19 @@
 Revision history for Tira
 
+5.213  2026-09-27
+    - TKT-730: filed from a budgeting use of Tira, where a board is a bank
+      account, a column is a savings pod, and a card's balance had no way
+      to be totalled by the tool itself - a column showed 40 cards and no
+      total, and the number a person actually wanted meant leaving the
+      board. Michael's answer to Q-191 chose the smallest fix: a single
+      numeric field, declared once per board via
+      tira.project.update --numeric-field NAME, set on any card via the
+      same --numeric-value flag record.update/record.create already take
+      other typed fields through, and read back with --sum FIELD on
+      tira.<type>.list, composing with --column and --where exactly the
+      way --count already does. A card that never set the field is
+      excluded from the total, not folded in as a silent zero.
+
 5.212  2026-09-27
     - TKT-726: card-sandbox-missing could not verify a sandbox that is an
       independent clone (its own .git, its own remote) - it only enumerated

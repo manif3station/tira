@@ -301,6 +301,12 @@ Returns the fixed list of questions asked when a project is first set up.
 
 Writes project-level settings: name, notify_after, and the automation settings that turn the reminder collector on or off.
 
+B<C<numeric_field>, since 5.213> (TKT-730): declares the single numeric
+field a board's cards may set - lowercase letters, digits and
+underscores, starting with a letter. An empty value clears the
+declaration. C<record_list>'s C<sum> option checks its own argument
+against this name.
+
 =head2 person_list
 
 Returns every person on the project.
@@ -762,6 +768,17 @@ Batch form of C<record_show> for up to 100 refs at once.
 =head2 record_list
 
 Returns records across one or all three boards, with filtering, field projection, and count/refs-only modes. Each record carries checklist_done/checklist_total the same way record_show does.
+
+B<C<sum>, since 5.213> (TKT-730): totals the board's own declared numeric
+field (C<numeric_value>, set via C<project_update>'s C<numeric_field>)
+across the records the same filters (C<column>, C<where>, and the rest)
+already narrowed to, and returns C<< { sum => N, records => [...] } >>
+rather than the bare array - the total rides alongside the ordinary
+output, unlike C<count>, which replaces it. C<sum>'s argument must name
+the field actually declared for this board; a mismatch, or no field
+declared at all, dies rather than silently totalling nothing. A record
+that never set C<numeric_value> is excluded from the total, not folded in
+as a zero.
 
 Every column, including C<discard>, is always in the result - there is no
 C<include_discard> to read here, deliberately: excluding discard is each

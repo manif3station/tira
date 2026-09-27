@@ -288,6 +288,15 @@ my %OPTION_READ_BY = (
         instead  => 'tira.tasklist.list, the only command with a linked/'
           . ' unlinked filter to apply it to',
     },
+
+    # TKT-730. The board's own declared numeric field name, set once via
+    # project.update - every other command took it and dropped it the same
+    # shape as sdlc_gate/comment above, before this entry existed.
+    numeric_field => {
+        flag     => 'numeric-field',
+        commands => qr/\Aproject\.update\z/,
+        instead  => 'tira.project.update --numeric-field NAME, which is the command that declares it',
+    },
 );
 
 # TKT-936/Q-154: a conditional required action, given as

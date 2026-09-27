@@ -191,6 +191,7 @@ sub run {
         'since=s' => \$option{since},
         'if-changed=s' => \$option{if_changed},
         'count' => \$option{count}, 'refs-only' => \$option{refs_only},
+        'sum=s' => \$option{sum},
         'tasklist' => \$option{tasklist},
         'brief' => \$option{brief}, 'truncate=i' => \$option{truncate},
         'last=i' => \$option{last}, 'first=i' => \$option{first},
@@ -267,6 +268,7 @@ sub run {
         'reporter=s' => \$option{reporter}, 'due-date=s' => \$option{due_date},
         'start-date=s' => \$option{start_date}, 'sdlc-gate=s' => \$option{sdlc_gate},
         'lifecycle=s' => \$option{lifecycle}, 'priority=s' => \$option{priority},
+        'numeric-field=s' => \$option{numeric_field}, 'numeric-value=s' => \$option{numeric_value},
         'fix-version=s' => \$option{fix_version},
         'repair-columns' => \$option{repair_columns}, 'apply' => \$option{apply},
         'recursive' => \$option{recursive}, 'include-deleted' => \$option{include_deleted},
@@ -898,6 +900,17 @@ sub run {
         return _finish( $tira, \%option, $command, 0 );
     }
 
+    # TKT-730. --sum's own result carries the total alongside the ordinary
+    # record list (unlike --count, which replaces it) - printed once here for
+    # human output, then unwrapped back to the plain record array so the
+    # normal per-record rendering below still runs unchanged. json/toon
+    # output needs none of this: format_output encodes the {sum, records}
+    # hash generically, same as it always has for any other hashref result.
+    if ( $option{output} eq 'human' && defined $option{sum} && ref $result eq 'HASH' && exists $result->{sum} ) {
+        print "sum: $result->{sum}\n";
+        $result = $result->{records};
+    }
+
     # TKT-785. record.move's own dispatch stamps a 'moved' field onto the
     # record it returns - printed here, ahead of the ordinary full-record
     # dump, so the one fact that confirms the move worked is the first thing
@@ -1427,6 +1440,8 @@ sub _invoke {
       if defined $option->{if_changed} && $command !~ /\A(?:record\.show|export)\z/;
     die "Count is available on list, export, and search commands, and the comment, attachment, gate, and evidence lists\n"
       if $option->{count} && $command !~ /\A(?:record\.list|export|search|comment\.list|attachment\.list|gate\.list|evidence\.list|history\.list|diff)\z/;
+    die "Sum is available on list commands\n"
+      if defined $option->{sum} && $command ne 'record.list';
     die "Snapshot baselines are available on the diff command\n"
       if defined $option->{snapshot} && $command ne 'diff';
     die "Older-than is available on the stale command\n"

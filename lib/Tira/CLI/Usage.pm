@@ -41,7 +41,7 @@ use Tira;
 my %RECORD_USAGE = (
     create  => '--title TEXT [record field arguments]',
     show    => '--ref REF [--fields LIST] [--brief|--full]',
-    list    => '[--column SLUG] [--assignee ID] [--fields LIST] [--count]',
+    list    => '[--column SLUG] [--assignee ID] [--fields LIST] [--count] [--sum FIELD]',
     update  => '--ref REF [record field arguments] [--author NAME]',
     move    => '--ref REF --column SLUG [--author NAME]',
     clone   => '--ref REF --title TEXT',

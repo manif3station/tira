@@ -2421,6 +2421,10 @@ d2 tira.project.update --mode chain   # refused
   project.update does not act on --mode. Use tira.project.mode --mode VALUE,
   which is the command that sets it.
 
+d2 tira.ticket.update --ref TKT-001 --numeric-field amount   # refused
+  record.update does not act on --numeric-field. Use tira.project.update
+  --numeric-field NAME, which is the command that declares it.
+
 d2 tira.ticket.update --ref TKT-001 --author claude --details "..."   # refused
   record.update does not act on --details. Use tira.gate.add --details TEXT,
   the command that reads it, or tira.<type>.update --key-detail TEXT if what

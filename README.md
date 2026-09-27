@@ -34,6 +34,13 @@ sandbox that is its own independent git clone rather than a worktree of
 the declared project repository - it asks the claimed path directly with
 git instead of only searching for it among the declared repository's own
 worktrees.
+Since 5.213 (TKT-730), a board can declare a single numeric field via
+`tira.project.update --numeric-field NAME`; every card of that board can
+then set it with `--numeric-value N` on `create`/`update`, and
+`tira.<type>.list --sum FIELD` totals it across the matched records
+alongside the normal record output, composing with `--column` and
+`--where` the same way `--count` already does. A card that never set the
+field is excluded from the total rather than folded in as a zero.
 Since 5.89, `gate.add --details` refuses a whitespace-only value the same
 way it refuses an empty one — the last of this "required explanation"
 field family (evidence, checklist, required-action) still testing for

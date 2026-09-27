@@ -266,24 +266,33 @@ police/bridge singleton pid files) protects board *records* under
 `TIRA_HOME` - it has no reach into `Changes`, `.env`, or `lib/Tira.pm`
 themselves, because those are edited directly by whatever is doing the
 development (an editor, a script, a concurrent AI agent session), completely
-outside `record_move`/`record_update`/the enforcement ledger. TKT-1172:
-confirmed live, a real incident, not a hypothetical - during a session running
-several concurrent agent forks against one shared working tree, two forks'
-sequential file-edit-then-`git commit` sequences raced on `Changes` with no
-lock or conflict detection at all, and the fork that committed second silently
-discarded the first fork's uncommitted entry, with no warning, no error, no
-trace in git history. It was caught only because the first fork happened to
-grep for its own entry afterward and found it gone. A code-level lock was
-considered and ruled out: the actual writers here are editor/agent processes
-invoking plain file writes and `git` directly, not calls into `lib/Tira.pm`,
-so there is no shared code path for `_with_project_lock`'s style of mutex to
-wrap. The mitigation is procedural: **commit an edit to `Changes`, `.env`, or
-`lib/Tira.pm` immediately after making it**, before starting any other edit
-to those same files, rather than batching several edits across a longer
-working session - this narrows the race window from "however long until the
-next commit" to "however long the commit itself takes," which is the
-difference between the incident above (real, exploitable window) and a race
-that would need two commits to land in the same instant (not observed).
+outside `record_move`/`record_update`/the enforcement ledger, and confirmed by
+grepping every writer in `lib/Tira.pm`/`lib/Tira/CLI*.pm` for an open/rename
+targeting these three files - none exists; nothing in this skill's own code
+ever writes them. TKT-1172: confirmed live, a real incident, not a
+hypothetical - during a session running several concurrent agent forks
+against one shared working tree, one fork's editor edit to `Changes`
+overwrote the working-tree file while a second fork's own uncommitted entry
+was still sitting there only in that same file, before either had committed;
+the first fork's own later `git commit` then recorded the file exactly as the
+overwrite had left it, with the second fork's entry gone - no warning, no
+error, no trace in git history of an entry that was ever there. It was caught
+only because the second fork happened to grep for its own entry afterward and
+found it gone. A code-level lock was considered and ruled out: the actual
+writers here are editor/agent processes invoking plain file writes and `git`
+directly, not calls into `lib/Tira.pm` (confirmed above by the grep, not
+merely assumed), so there is no shared code path for `_with_project_lock`'s
+style of mutex to wrap. The mitigation is procedural, not a guarantee:
+**commit an edit to `Changes`, `.env`, or `lib/Tira.pm` immediately after
+making it**, before starting any other edit to those same files, rather than
+batching several edits across a longer working session. This narrows the
+race window from "however long until the next commit" to "however long the
+commit itself takes" - it does not close the window, since two forks can
+still overwrite each other inside that shorter window (a stale read followed
+by a write is enough, with no requirement that the commits themselves land at
+the same instant); it only makes the window small enough that the incident
+above, which needed a working-session-length gap to occur, becomes far less
+likely to recur.
 
 ## Record schema
 

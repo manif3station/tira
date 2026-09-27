@@ -42,14 +42,26 @@ like(
 
 like(
     $paragraph,
-    qr/no shared code path for `_with_project_lock`'s style of mutex to\nwrap/,
+    qr/no shared code path for `_with_project_lock`'s\nstyle of mutex to wrap/,
     'the paragraph explains why a code-level lock was ruled out - no shared code path through lib/Tira.pm'
 );
 
 like(
     $paragraph,
-    qr/commit an edit to `Changes`, `\.env`, or\n`lib\/Tira\.pm` immediately after making it/,
+    qr/confirmed above by the grep, not\nmerely assumed/,
+    'the paragraph says the no-internal-writer claim was verified (grep), not just asserted'
+);
+
+like(
+    $paragraph,
+    qr/commit an edit to `Changes`, `\.env`, or `lib\/Tira\.pm` immediately after/,
     'the paragraph states the accepted procedural mitigation: commit a hot-file edit immediately'
+);
+
+like(
+    $paragraph,
+    qr/it does not close the window/,
+    'the paragraph does not oversell the mitigation as closing the race, only narrowing it'
 );
 
 done_testing();

@@ -2307,9 +2307,14 @@ the plain functions `_render_view`, `_view_asset` and `json_object`.
 
 **A `<key>`-shaped substring inside `<description>` could be mistaken for a second issue, since 5.199** (TKT-1154). The key-extraction regex scanned the whole file as raw text, not scoped to the item's own top-level fields - so a `<description>` quoting example markup containing a literal `<key>...</key>`-shaped substring (a realistic case: Jira tickets about markup or config commonly quote such examples) was counted as a second issue key, wrongly refusing a perfectly valid single-issue export with "takes exactly one issue at a time", naming a key that was never a real Jira issue. Found by the hourly bug hunt, reproduced live in a container. Fixed by skipping `<description>...</description>` spans before running the key regex; the genuine multi-issue refusal (`t/1160`) still works. Codex review caught the first version of this fix: a plain non-greedy match ended early at a literal `</description>` substring inside CDATA-wrapped description content, leaving a real embedded `<key>` tag unstripped - the strip now tries the CDATA-wrapped form first, matching through to the actual closing `]]>` before requiring `</description>`, so a description's own CDATA content can safely contain that literal text.
 
-`lib/Tira.pm` is 16,257 lines now (TKT-1162's own DST fall-back fix,
-routing four last_updated comparisons through a shared helper); it was
-16,244 lines as of TKT-1159's own DST fall-back fix, routing two
+`lib/Tira.pm` is 16,253 lines now (TKT-1159's own verify-stage Codex
+review found `_outranks_for_work`'s age tie-break still carried its own
+inline epoch-comparison copy instead of routing through `_created_at_order`
+the way `work_order`'s sort already did - deduplicated, moving the card
+back from verify to implement to fix it); it was 16,257 lines as of
+TKT-1162's own DST fall-back fix, routing four last_updated comparisons
+through a shared helper; it was 16,244 lines as of TKT-1159's own DST
+fall-back fix, routing two
 created_at comparisons through _epoch_of_datetime; it was 16,222 lines
 as of TKT-726's own regression fix, restoring the
 worktree-count diagnostic the independent-clone check had dropped; it
@@ -2414,7 +2419,7 @@ split "is this file text?" across two files.
 
 **`t/431` found three dangling references this lift would otherwise have
 shipped**, and it is worth naming what they were, because a hand-check missed
-all three. `_epoch_of_datetime` called bare (57 callers in the engine — shared
+all three. `_epoch_of_datetime` called bare (55 callers in the engine — shared
 furniture, now reached by package name), `_looks_like_text` called bare (its
 only caller had just left), and `encode_utf8` imported by `Tira.pm` and not by
 the new module — which is exactly the third failure `t/431` was written for: it

@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.217';
+our $VERSION = '5.218';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -12440,13 +12440,9 @@ sub _outranks_for_work {
     # computed UTC offset, so a card created just before a DST fall-back and
     # one created a few minutes after it get strings whose wall-clock time
     # goes backward even though real/UTC time moved forward. TKT-1159:
-    # compare the real instant, not the string. A stamp that fails to parse
-    # falls back to the string it came from, unchanged from before.
-    my $their_epoch = eval { _epoch_of_datetime( $their_age, 'Created at' ) };
-    my $our_epoch   = eval { _epoch_of_datetime( $our_age,   'Created at' ) };
-    return $their_epoch < $our_epoch ? ( 1, 'age' ) : ( 0, undef )
-      if defined $their_epoch && defined $our_epoch;
-    return $their_age lt $our_age ? ( 1, 'age' ) : ( 0, undef );
+    # compare the real instant via the same shared helper work_order's sort
+    # uses (TKT-1159/TKT-1162's established convention), not the string.
+    return _created_at_order( $above, $record ) < 0 ? ( 1, 'age' ) : ( 0, undef );
 }
 
 # The same DST fall-back trap _outranks_for_work has: created_at is local

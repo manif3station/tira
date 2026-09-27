@@ -19,8 +19,9 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
 
-use lib 'lib';
+use lib 'lib', 't/lib';
 use Tira;
+use Suite qw(engine_source);
 
 my $tmp   = tempdir( CLEANUP => 1 );
 my $now   = '2026-10-25T09:00:00Z';
@@ -75,6 +76,24 @@ $tira->record_move( author => 'claude', project => $root, ref => $newer->{ref}, 
 my $found = skipped();
 ok( scalar @{$found},
     'taking the genuinely newer card ahead of the genuinely older one is reported' );
+
+# --- _outranks_for_work routes through the same shared helper work_order's --
+# sort uses, rather than keeping its own duplicate epoch-comparison inline -
+# the established convention TKT-1162 later applied to every last_updated
+# site. Asked of "the engine" rather than of lib/Tira.pm by name, same reason
+# t/1162's own structural check does (a lift must not break this).
+
+{
+    my @lines = split /\n/, engine_source();
+    my ($start) = grep { $lines[$_] =~ /^sub _outranks_for_work/ } 0 .. $#lines;
+    ok( defined $start, 'found _outranks_for_work to inspect' );
+    my $body = join "\n", @lines[ $start .. $start + 30 ];
+
+    unlike( $body, qr/\b(?:lt|gt|le|ge)\s*\$(?:their_age|our_age)/,
+        '_outranks_for_work no longer compares created_at with a raw string operator' );
+    like( $body, qr/_created_at_order/,
+        '_outranks_for_work routes through the shared helper instead' );
+}
 
 done_testing;
 

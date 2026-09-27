@@ -1,5 +1,11 @@
 Revision history for Tira
 
+5.218  2026-09-27
+    - TKT-1159: verify-stage Codex review found _outranks_for_work's age
+      tie-break still carried its own inline _epoch_of_datetime comparison
+      instead of routing through the shared _created_at_order helper
+      work_order's sort already uses. Deduplicated; behavior unchanged.
+
 5.217  2026-09-27
     - TKT-1162: board-still's newest-move pick, checklist-idle's latest-entry
       pick, _announce_moves's two already-notified guards, and

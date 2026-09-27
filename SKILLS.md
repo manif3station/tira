@@ -262,9 +262,9 @@ beside the newest one, which police's own claim never protected it from.
 
 **None of the above locking covers this skill's own source tree.** Every lock
 described in this section (`_with_project_lock`, `_with_enforcement_lock`, the
-police/bridge singleton pid files) protects board *records* under
-`TIRA_HOME` - it has no reach into `Changes`, `.env`, or `lib/Tira.pm`
-themselves, because those are edited directly by whatever is doing the
+police/bridge singleton pid files) protects the board's own *records* - it has
+no reach into `Changes`, `.env`, or `lib/Tira.pm` themselves, because those are
+edited directly by whatever is doing the
 development (an editor, a script, a concurrent AI agent session), completely
 outside `record_move`/`record_update`/the enforcement ledger, and confirmed by
 grepping every writer in `lib/Tira.pm`/`lib/Tira/CLI*.pm` for an open/rename

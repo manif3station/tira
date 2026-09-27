@@ -1,5 +1,17 @@
 Revision history for Tira
 
+5.231  2026-09-27
+    - TKT-1176: TKT-1172's own SKILLS.md edit (5.230) named the literal
+      TIRA_HOME string in its Concurrency and transaction semantics section,
+      tripping t/03-metadata.t's own no-project-disclosure guard (a card
+      cannot say which env var/path names the board, per TKT-220's ruling
+      that there is exactly one way to say which board a call is about).
+      Found live during a routine hourly bug hunt - a full suite run showed
+      t/03-metadata.t red on a clean 5.230 install. Reworded the sentence to
+      describe the same fact (this locking layer protects the board's own
+      records, not the skill's source-tree files) without naming the env
+      var; d2 dev.run -- t/03-metadata.t passes clean again (2066/2066).
+
 5.230  2026-09-27
     - TKT-1172: this session ran several concurrent agent forks against one
       shared working tree, and a real incident followed - one fork's edit

@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.221';
+our $VERSION = '5.222';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2650,6 +2650,18 @@ sub record_list {
           if !defined $declared;
         die "Unknown numeric field '$args{sum}' - the declared numeric field on this board is '$declared'\n"
           if $args{sum} ne $declared;
+
+        # TKT-1167. refs_only's own return is a bare arrayref of refs -
+        # composing --sum into that shape would either break every existing
+        # refs_only caller (an arrayref becoming a hashref) or bury the sum
+        # inside a shape callers do not expect. Refused rather than made to
+        # silently drop one or the other, the same choice count_mode's
+        # sibling combination makes at the same point below.
+        die "--sum does not compose with --refs-only - refs_only's own return is a "
+          . "bare list of refs, which cannot also carry a sum without changing what "
+          . "every existing refs_only caller gets back. Ask for the sum without "
+          . "--refs-only, or the refs without --sum.\n"
+          if $args{refs_only};
         $summing = 1;
     }
     my $sum_total = 0;

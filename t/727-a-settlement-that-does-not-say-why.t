@@ -58,6 +58,8 @@ is( $settled2->[0]{reason}, 'policy-suspended',
 # --- the bridge line stops asserting a fact nobody checked ----------------
 
 my $line = $tira->_bridge_settled_line( $settled->[0] );
+like( $line, qr/SETTLED.*TKT-001/,
+    'the settlement line is composed for the real settled violation, not empty or broken' );
 unlike( $line, qr/no longer applies here/,
     'the settlement line no longer states as fact that the rule stopped applying' );
 

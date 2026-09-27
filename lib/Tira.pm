@@ -8248,7 +8248,7 @@ sub _board_still_inputs {
       . "d2 tira.policy.list yourself\n"
       if @policies > 1;
     my $policy = $policies[0];
-    my ($moved) = sort { $b cmp $a } grep { defined } map { $_->{last_updated} } @{$all};
+    my ($moved) = sort { _last_updated_order( $b, $a ) } grep { defined } map { $_->{last_updated} } @{$all};
     return {
         policy         => $policy,
         moved          => $moved,
@@ -8967,7 +8967,7 @@ sub policy_evaluate {
 
                 my $checklist = $record->{checklist} // [];
                 next if !@{$checklist};
-                my ($latest) = sort { $b cmp $a } map { $_->{last_updated} } @{$checklist};
+                my ($latest) = sort { _last_updated_order( $b, $a ) } map { $_->{last_updated} } @{$checklist};
                 next if !$self->_policy_older_than( $latest, $policy->{age}, $record->{ref} );
 
                 # "no checklist movement" is true and useless on a checklist
@@ -11155,12 +11155,12 @@ sub _announce_moves {
             next
               if defined $already
               && defined $record->{last_updated}
-              && $record->{last_updated} le $already;
+              && _last_updated_order( $record->{last_updated}, $already ) <= 0;
 
             my $move = $self->_last_move( $root, $record );
             next if !$move || !defined $move->{at};
 
-            next if defined $already && $already ge $move->{at};
+            next if defined $already && _last_updated_order( $already, $move->{at} ) >= 0;
 
             # A column switched off is silent, and still remembered - otherwise
             # switching it back on would announce a move that happened while
@@ -12460,6 +12460,19 @@ sub _created_at_order {
     return ( $a->{created_at} // '' ) cmp( $b->{created_at} // '' );
 }
 
+# The same DST fall-back trap, for last_updated instead of created_at.
+# TKT-1162: takes the two raw stamps rather than two records, since its
+# four callers each already have the two strings in hand (a sort key, a
+# stored notification stamp, a history entry's own "at") without a shared
+# record shape to read a field from.
+sub _last_updated_order {
+    my ( $a_stamp, $b_stamp ) = @_;
+    my $a_epoch = eval { _epoch_of_datetime( $a_stamp // '', 'Last updated' ) };
+    my $b_epoch = eval { _epoch_of_datetime( $b_stamp // '', 'Last updated' ) };
+    return $a_epoch <=> $b_epoch if defined $a_epoch && defined $b_epoch;
+    return ( $a_stamp // '' ) cmp( $b_stamp // '' );
+}
+
 sub _queue_columns {
     my ( $self, $root, $type ) = @_;
     my $columns = eval { $self->column_list( project => $root, type => $type ) } || [];
@@ -12686,7 +12699,7 @@ sub _agent_last_acted {
     # Newest first, so the bound below starts biting immediately rather than
     # after the whole board has been read.
     my $newest;
-    for my $record ( sort { ( $b->{last_updated} // '' ) cmp( $a->{last_updated} // '' ) }
+    for my $record ( sort { _last_updated_order( $b->{last_updated} // '', $a->{last_updated} // '' ) }
         @{$all} )
     {
         # A card's newest history entry cannot be later than its own
@@ -12698,7 +12711,7 @@ sub _agent_last_acted {
         next
           if defined $newest
           && defined $record->{last_updated}
-          && $record->{last_updated} le $newest;
+          && _last_updated_order( $record->{last_updated}, $newest ) <= 0;
 
         my $entries = eval {
             $self->history_list( project => $root, ref => $record->{ref} );

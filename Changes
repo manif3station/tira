@@ -1,5 +1,11 @@
 Revision history for Tira
 
+5.219  2026-09-27
+    - TKT-1160: ticket/epic/sow show's --help usage line never mentioned
+      --refs, the batch-read form record_show_many implements and
+      docs/commands.md documents. Added to the shared %RECORD_USAGE{show}
+      line in lib/Tira/CLI/Usage.pm.
+
 5.218  2026-09-27
     - TKT-1159: verify-stage Codex review found _outranks_for_work's age
       tie-break still carried its own inline _epoch_of_datetime comparison

@@ -81,6 +81,7 @@ my %declare = (
     'checklist-unmoved'         => {},
     'checklist-item-terminal'   => {},
     'required-action-stranded'  => {},
+    'required-unsatisfied'      => {},
     'orphan-card'               => {},
     'rules-undeclared'               => {},
     'upgrade-unreviewed'        => { age => '1h' },
@@ -186,6 +187,17 @@ my $stranded = $tira->create_record( project => $root, type => 'ticket', title =
 $tira->required_item_add( author => 'claude', project => $root, ref => $stranded->{ref},
     column => 'backlog', item => 'Fill in the fields', status => 'pending' );
 browser_moved( $stranded->{ref}, 'implement', 'ticket' );
+
+# required-unsatisfied: an item still unmet in the card's own CURRENT
+# column - resting in an ending one, invisible to required-action-stranded
+# (which exempts ending columns) and to the departure gate (which only
+# fires on the way out).
+my $unsatisfied = $tira->create_record( project => $root, type => 'ticket', title => 'Resting but still owing' );
+browser_moved( $unsatisfied->{ref}, 'implement', 'ticket' );
+browser_moved( $unsatisfied->{ref}, 'verify', 'ticket' );
+browser_moved( $unsatisfied->{ref}, 'done', 'ticket' );
+$tira->required_item_add( author => 'claude', project => $root, ref => $unsatisfied->{ref},
+    column => 'done', item => 'Record the release note', status => 'pending' );
 
 # checklist-item-terminal: an epic checklist item naming a card that has
 # already reached a terminal column, while the item itself is still open.

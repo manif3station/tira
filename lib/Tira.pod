@@ -269,6 +269,15 @@ seconds apart, on a job scheduled every three hours. Fixed by moving the read
 inside the same lock as the write, so the whole decide-announce-record
 sequence is atomic per pass.
 
+C<required-unsatisfied>, since 5.228 (TKT-643), reuses C<_unmet_in_column>
+to ask whether a record's own CURRENT column still has an unmet required
+item - unlike C<required-action-stranded>, which only reports an item
+tagged with a column already left BEHIND and deliberately exempts ending
+columns. Neither of those asked whether the column a card is presently
+resting in still owes something for itself, so a card could sit in
+C<done>/C<install>/C<push> forever with an unsatisfied required item for
+that same column and nothing would ever report it.
+
 =head2 project_new
 
 Creates a complete project in one call - the project, its three boards, prefixes, columns, and members - re-runnable safely, since an existing piece is adopted rather than refused.

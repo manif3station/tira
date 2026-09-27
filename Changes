@@ -1,5 +1,40 @@
 Revision history for Tira
 
+5.228  2026-09-27
+    - TKT-643: no police rule ever swept for a required_item still unmet
+      in a record's own CURRENT column - required-action-stranded
+      (TKT-612) only reports items BEHIND the current column and
+      deliberately exempts ending columns, and the CLI departure gate
+      only fires on the way out. So a card resting in done/install/push
+      forever with an unsatisfied required item for that same column was
+      invisible to every check. Confirmed at scale on the real board: 144
+      cards resting in done/install/push carry exactly this. Added the
+      required-unsatisfied police rule, reusing the existing
+      _unmet_in_column helper with no ending-column exemption.
+
+5.227  2026-09-27
+    - TKT-1165: two more DST fall-back string-comparison sites, found by
+      Codex during TKT-1162's own document stage, neither in TKT-1159's
+      or TKT-1162's own scope because they belong to different rules.
+      _priority_skipped_exempt's parent-open-only-because-child-open
+      exemption compared a child's and a parent's last_updated//
+      created_at with raw gt/le, and conversation-not-folded's newest-
+      comment pick sorted comment timestamps with sort { $b cmp $a } and
+      compared with raw ge. Both now route through the same
+      _last_updated_order helper TKT-1162 added.
+
+5.226  2026-09-27
+    - TKT-1169: d2 tira.<type>.list --help never named --count or --fields,
+      even though record_list genuinely accepts both, and both already
+      appeared in Tira::CLI::Usage's own %RECORD_USAGE{list} fallback
+      template - but that template was bypassed, since a typed list
+      command's usage line is resolved from SKILLS.md's generic
+      tira.<type>.list catalogue line first (TKT-418's precedence
+      order), and that line never had them either. Added to
+      SKILLS.md's catalogue line and docs/commands.md's own illustrative
+      list line, matching the ordering already in %RECORD_USAGE{list}.
+      Found while auditing --help accuracy for TKT-1166.
+
 5.225  2026-09-27
     - TKT-636: SKILLS.md's TKT-455 paragraph (the backward-move
       required-item reset) now says explicitly that a reset item can be

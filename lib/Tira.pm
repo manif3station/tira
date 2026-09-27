@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.225';
+our $VERSION = '5.228';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -7087,6 +7087,17 @@ my %POLICY_RULES = (
     # card leaves, not something that becomes more so by waiting. TKT-612.
     'required-action-stranded'  => { needs => [], forbids => ['age'] },
 
+    # TKT-643. required-action-stranded (above) deliberately exempts ending
+    # columns and only ever looks BEHIND the card's current column - the
+    # departure gate only fires on the way OUT of a column too. Nothing
+    # watches whether an item tagged to the column a card is currently
+    # RESTING in (working or ending) was ever actually satisfied. This rule
+    # is that watch: it does not care whether the card is moving, only
+    # whether the column it sits in right now still owes something for
+    # itself. No age, same reasoning as checklist-unmoved/required-action-
+    # stranded above - the moment it is true it is already worth knowing.
+    'required-unsatisfied'      => { needs => [], forbids => ['age'] },
+
     # An upgrade traced to its end rather than announced and forgotten.
     #
     # The upgrade notice asks the agent to read what changed, learn what is new
@@ -9142,6 +9153,27 @@ sub policy_evaluate {
                       . join( ', ', map { "$_->{id} ($_->{column}): $_->{item}" } @stranded ) );
             }
         }
+        elsif ( $rule eq 'required-unsatisfied' ) {
+
+            # TKT-643. Reuses _unmet_in_column - the same helper record_move's
+            # own backward-move logging already trusts - to ask the one
+            # question nothing else asks: does the card's CURRENT column
+            # still owe something for itself? Deliberately no _ending_columns
+            # exemption here, unlike card_missing/_card_owed_missing - the
+            # whole point is that a resting/ending column is not exempt from
+            # having attached obligations honoured, only from being nagged
+            # about moving.
+            for my $record ( @{$records} ) {
+                next if !$resolved_for->( $policy, $record );
+                my $current = $record->{column} // '';
+                next if $current eq 'discard';
+                my $unmet = _unmet_in_column( $record, $current );
+                next if !@{$unmet};
+                $report->( $policy, $record,
+                    scalar(@{$unmet}) . " required item(s) still unmet in its own column ($current): "
+                      . join( ', ', map { "$_->{id}: $_->{item}" } @{$unmet} ) );
+            }
+        }
         elsif ( $rule eq 'checklist-item-terminal' ) {
 
             # An epic or sow checklist item names its child cards in its own
@@ -9304,7 +9336,7 @@ sub policy_evaluate {
                 my @comments = @{ $record->{comments} // [] };
                 next if !@comments;
 
-                my ($said) = sort { $b cmp $a }
+                my ($said) = sort { _last_updated_order( $b, $a ) }
                   grep { defined } map { $_->{created_at} // $_->{at} } @comments;
                 next if !defined $said;
 
@@ -9315,7 +9347,7 @@ sub policy_evaluate {
                 # would be this rule inventing a violation out of a fault of
                 # its own, which is the worst of both silences.
                 next if !$readable;
-                next if defined $written && $written ge $said;
+                next if defined $written && _last_updated_order( $written, $said ) >= 0;
 
                 $report->( $policy, $record,
                     'the newest comment is later than anything written on the card - '
@@ -10983,10 +11015,10 @@ sub _priority_skipped_exempt {
     my $latest_child = '';
     for my $child (@open_children) {
         my $when = $child->{last_updated} // $child->{created_at} // '';
-        $latest_child = $when if $when gt $latest_child;
+        $latest_child = $when if _last_updated_order( $when, $latest_child ) > 0;
     }
     my $parent_touched = $record->{last_updated} // $record->{created_at} // '';
-    return $parent_touched le $latest_child ? 1 : 0;
+    return _last_updated_order( $parent_touched, $latest_child ) <= 0 ? 1 : 0;
 }
 
 # Whether a card sits before the column the policy names. Which column means

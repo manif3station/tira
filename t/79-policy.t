@@ -144,6 +144,7 @@ my %needs = (
     'checklist-unmoved'         => {},
     'checklist-item-terminal'   => {},
     'required-action-stranded'  => {},
+    'required-unsatisfied'      => {},
     'orphan-card'               => {},
     'monitor-dead'              => {},
     'monitor-output'            => {},

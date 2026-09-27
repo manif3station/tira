@@ -11587,11 +11587,20 @@ sub _violation_record_locked {
         # stayed in the log with nothing marking it dealt with - and an agent
         # replaying a backlog read it as work still to do. Once only: the entry
         # has left open, so no later pass can find it again.
+        #
+        # TKT-727: settled has always meant only "absent from this pass's
+        # findings" - never that the condition was re-checked and found
+        # fixed. A rule put down with rule_suspend and a rule that genuinely
+        # cleared both land here identically, and the entry moving to closed
+        # with nothing but settled=>1 threw away the one thing that told them
+        # apart. reason names what is actually known, rather than letting the
+        # reader assume the stronger claim.
         push @settled, {
             %{ $entry->{about} // {} },
             id => $entry->{id},
             seen => $entry->{seen},
             settled => 1,
+            reason => $self->_settle_reason( $store, $entry->{about} // {} ),
         };
     }
 
@@ -11614,6 +11623,22 @@ sub _violation_record_locked {
     # Two answers, and the caller that only wants the violations still gets
     # exactly what it always did.
     return ( \@view, \@settled );
+}
+
+# TKT-727. What can honestly be said about why a settlement happened, without
+# a rewrite: the one case already distinguishable from the enforcement log
+# this store already keeps is a rule that was put down with rule_suspend -
+# that settlement is not a re-check at all, and saying so is cheap because
+# the log is right here. Everything else stays the default: the pass ran,
+# the condition was absent from what it found, and nothing further is known
+# - not a claim that the condition was fixed.
+sub _settle_reason {
+    my ( $self, $store, $about ) = @_;
+    my $rule = $about->{rule};
+    return 'no-longer-detected' if !defined $rule || $rule eq '';
+    my $quieted = eval { $self->_enforcement_read($store) } || { rules => {} };
+    return 'policy-suspended' if $self->_rule_suspended( $quieted, $rule, $about->{ref} );
+    return 'no-longer-detected';
 }
 
 # The six rules that are about the world rather than the board. Police gathers
@@ -13206,8 +13231,18 @@ sub bridge_log_path {
 # The end of a violation, in the shape of the line that raised it so a reader
 # scanning one column sees both. Its number is the number that was said, which
 # is the only way to match a settlement to what it settles.
+#
+# TKT-727: "no longer applies here" was said unconditionally, and it is a
+# stronger claim than the ledger ever established - a rule put down with
+# rule_suspend never re-checked anything. reason says which is actually
+# known.
+my %SETTLE_REASON_LINE = (
+    'policy-suspended'   => 'is suspended, and was not re-checked',
+    'no-longer-detected' => 'no longer detected this pass',
+);
 sub _bridge_settled_line {
     my ( $self, $done ) = @_;
+    my $reason = $done->{reason} // 'no-longer-detected';
     return join ' | ',
       $self->{clock}->(),
       'SETTLED',
@@ -13215,7 +13250,8 @@ sub _bridge_settled_line {
       $done->{id} // 'VIO-0000',
       ( ( $done->{ref} // '' ) ne '' ? $done->{ref} : 'board' ),
       'said ' . ( $done->{seen} // 0 ) . ' times',
-      ( $done->{rule} // 'a rule' ) . ' no longer applies here',
+      ( $done->{rule} // 'a rule' ) . ' '
+        . ( $SETTLE_REASON_LINE{$reason} // $reason ),
       'fix: nothing - this one is over'
       . ( ( $done->{board} // '' ) ne '' ? " | board: $done->{board}" : '' );
 }

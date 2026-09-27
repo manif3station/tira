@@ -1,5 +1,24 @@
 Revision history for Tira
 
+5.211  2026-09-27
+    - TKT-727: the police violation ledger's settle test has only ever
+      meant "absent from this pass's findings", never "re-checked and
+      found fixed" - a rule genuinely cleared and a rule merely put down
+      with rule_suspend both landed in the closed ledger identically,
+      carrying nothing but settled => 1. A follow-up to TKT-726, filed
+      after card-sandbox-missing SETTLED on a real card with every
+      underlying fact unchanged between the two passes. Every settled
+      entry now also carries a reason: policy-suspended when the
+      enforcement log already on hand shows the rule was put down for
+      this ref or board at settle time (_settle_reason), and
+      no-longer-detected otherwise - the honest default, since a rule
+      that was genuinely re-checked and one that never got the chance to
+      run both produce the same absence. _bridge_settled_line now
+      reflects the distinction instead of asserting unconditionally that
+      the rule "no longer applies here". A general fix to the ledger
+      itself (Michael's answer to Q-190), not scoped to
+      card-sandbox-missing.
+
 5.210  2026-09-26
     - TKT-816: priority-skipped had three holds for a card sitting above the
       one being worked - an unanswered question, a future start_date, a

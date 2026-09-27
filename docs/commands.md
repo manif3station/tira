@@ -1232,6 +1232,16 @@ reader splitting the first fields sees exactly what it saw before. Making the
 numbers unique across boards was rejected: a board's store is its own, and
 coordinating them is what this design avoids.
 
+**A `SETTLED` line now says why, since 5.211** (TKT-727). It used to say
+`<rule> no longer applies here` unconditionally - a stronger claim than the
+ledger ever established, since settling has only ever meant "absent from
+this pass's findings", not "re-checked and found fixed". Every settled
+entry now carries a `reason`: `policy-suspended` when the rule was put down
+with `rule_suspend` for this ref or board at settle time, and
+`no-longer-detected` otherwise. The line reflects whichever applies, so a
+reader can no longer mistake a rule being silenced for the condition it
+named actually clearing.
+
 **Match the field, not the word.** A line now carries a name somebody chose, so
 a board called `Settled`, `Done` or `Urgent` will match a grep for that word
 anywhere in the line. Matchers should key on the field - ` | SETTLED | `, ` |
@@ -2183,20 +2193,30 @@ listing what it does cover rather than leaving the caller to guess.
 
 **`discard-unexplained`** (`--ref REF --rule discard-unexplained`): the
 move-to-discard timestamp (or `undef` if the card was migrated in already
-discarded, with no history to anchor to), every comment's own timestamp and
-whether it falls within the 5-second grace window, and the real `explained`
-verdict. The rule's own body calls the identical helper
-(`_discard_unexplained_inputs`) and asks only for that verdict, so this
-command's explanation cannot drift from what the rule actually decided.
+discarded, with no history to anchor to), the PREVIOUS column transition's
+own timestamp (or `undef` if there was none), every comment's own timestamp
+and whether it falls at or after that previous transition, and the real
+`explained` verdict. Since 5.211 (TKT-1158) this is an authoring-ORDER
+check rather than a fixed grace window: a comment explains the move if it
+exists any time from the previous transition onward, regardless of how many
+seconds separate it from the move - no width is both wide enough for real
+agent tool-call latency (measured 10 seconds between two correctly-ordered
+back-to-back calls) and narrow enough to exclude an unrelated comment from
+long before. The rule's own body calls the identical helper
+(`_discard_unexplained_inputs`, which in turn calls the shared
+`_comments_explain_move`) and asks only for that verdict, so this command's
+explanation cannot drift from what the rule actually decided.
+`backward-move-unexplained` calls the same shared `_comments_explain_move`
+too, rather than carrying its own copy.
 
 ```
 {
   "rule": "discard-unexplained", "ref": "TKT-763", "column": "discard",
   "moved_at": "2026-09-15T22:39:10+0100", "moved_epoch": 1789603150,
-  "grace_seconds": 5,
+  "prior_at": "2026-09-15T22:30:00+0100", "prior_epoch": 1789602600,
   "comments": [
-    { "created_at": "2026-09-15T22:39:09+0100", "epoch": 1789603149,
-      "body_present": 1, "within_grace": 1 }
+    { "created_at": "2026-09-15T22:39:00+0100", "epoch": 1789603140,
+      "body_present": 1, "since_prior_move": 1 }
   ],
   "explained": 1
 }

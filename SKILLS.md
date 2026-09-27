@@ -2277,10 +2277,14 @@ the plain functions `_render_view`, `_view_asset` and `json_object`.
 
 **A `<key>`-shaped substring inside `<description>` could be mistaken for a second issue, since 5.199** (TKT-1154). The key-extraction regex scanned the whole file as raw text, not scoped to the item's own top-level fields - so a `<description>` quoting example markup containing a literal `<key>...</key>`-shaped substring (a realistic case: Jira tickets about markup or config commonly quote such examples) was counted as a second issue key, wrongly refusing a perfectly valid single-issue export with "takes exactly one issue at a time", naming a key that was never a real Jira issue. Found by the hourly bug hunt, reproduced live in a container. Fixed by skipping `<description>...</description>` spans before running the key regex; the genuine multi-issue refusal (`t/1160`) still works. Codex review caught the first version of this fix: a plain non-greedy match ended early at a literal `</description>` substring inside CDATA-wrapped description content, leaving a real embedded `<key>` tag unstripped - the strip now tries the CDATA-wrapped form first, matching through to the actual closing `]]>` before requiring `</description>`, so a description's own CDATA content can safely contain that literal text.
 
-`lib/Tira.pm` is 16,083 lines now (TKT-816 added a fourth priority-skipped
-hold, exempting an above card claimed by a human assignee); it was 16,058
-lines as of TKT-637, which added an optional said_at to conversation entries
-and card-changed-by-owner's own historical-quote exemption; it was 16,036
+`lib/Tira.pm` is 16,097 lines now (TKT-1158, which generalized
+discard-unexplained's fixed GRACE_SECONDS grace window into an order-based
+explained-by-comment check and deduplicated backward-move-unexplained's own
+inline copy of it into the same shared helper); it was 16,083 lines as of
+TKT-816, which added a fourth priority-skipped hold, exempting an above
+card claimed by a human assignee; it was 16,058 lines as of TKT-637, which
+added an optional said_at to conversation entries and
+card-changed-by-owner's own historical-quote exemption; it was 16,036
 lines as of TKT-733, which added a labels filter to
 `record_list`; it was 15,998 lines as of TKT-1156, which routed
 `policy_evaluate`'s inline card-duration branch through

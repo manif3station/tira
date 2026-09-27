@@ -1,5 +1,13 @@
 Revision history for Tira
 
+5.220  2026-09-27
+    - TKT-1161: ticket/epic/sow list's --help usage line never mentioned
+      --where, --since, --label, --refs-only, or --meta-only, all five
+      genuinely accepted by record_list. Added to SKILLS.md's own
+      tira.<type>.list catalogue line, which takes precedence over the
+      %RECORD_USAGE{list} fallback in lib/Tira/CLI/Usage.pm for typed
+      list commands.
+
 5.219  2026-09-27
     - TKT-1160: ticket/epic/sow show's --help usage line never mentioned
       --refs, the batch-read form record_show_many implements and

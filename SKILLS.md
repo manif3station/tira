@@ -2406,7 +2406,7 @@ split "is this file text?" across two files.
 
 **`t/431` found three dangling references this lift would otherwise have
 shipped**, and it is worth naming what they were, because a hand-check missed
-all three. `_epoch_of_datetime` called bare (52 callers in the engine — shared
+all three. `_epoch_of_datetime` called bare (51 callers in the engine — shared
 furniture, now reached by package name), `_looks_like_text` called bare (its
 only caller had just left), and `encode_utf8` imported by `Tira.pm` and not by
 the new module — which is exactly the third failure `t/431` was written for: it

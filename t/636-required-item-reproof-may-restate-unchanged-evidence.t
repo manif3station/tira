@@ -42,3 +42,22 @@ like(
 );
 
 done_testing();
+
+=head1 NAME
+
+636-required-item-reproof-may-restate-unchanged-evidence.t - a re-walked
+required item's proof may honestly restate unchanged evidence
+
+=head1 DESCRIPTION
+
+TKT-636. Reported from zen-framework: a card returned to an earlier column
+for a review finding has every required item between destination and
+origin reset to pending (TKT-455, deliberate and correct), and the re-walk
+was feared to always need wholly new evidence for facts that could not
+have changed. That fear is unfounded: C<_refuse_reused_proof> only refuses
+an EXACT text match on the C<(command, proof)> pair, so a proof honestly
+stating the same evidence still holds is already accepted today. This only
+needed documenting, in SKILLS.md's own TKT-455 paragraph, so an agent
+re-walking a card is not pressured to invent new substance.
+
+=cut

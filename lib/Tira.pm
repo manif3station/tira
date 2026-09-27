@@ -11838,14 +11838,21 @@ sub _police_environment_violations {
                         push @missing, "the work tree it records, $claimed, which is not a git repository at all";
                     }
                     else {
-                        my ($checked_out) = @{ Tira::CLI::Serve::_reading(
-                            'git', '-C', $claimed, 'rev-parse', '--abbrev-ref', 'HEAD' ) };
-                        $checked_out //= '';
-                        if ( $checked_out ne $record->{ref} ) {
+                        my $lines = Tira::CLI::Serve::_reading(
+                            'git', '-C', $claimed, 'rev-parse', '--abbrev-ref', 'HEAD' );
+                        my $checked_out = $lines->[0];
+                        if ( !defined $checked_out ) {
+
+                            # _reading returns nothing when git itself is
+                            # missing or the read failed - a distinct fault
+                            # from a real, git-answered checkout, and not
+                            # this rule's to diagnose further.
                             push @missing, "the work tree it records, $claimed, which is a git repository "
-                              . ( $checked_out eq ''
-                                ? 'but has no branch checked out'
-                                : "but is checked out to '$checked_out', not $record->{ref}" );
+                              . 'but its checked-out branch could not be read';
+                        }
+                        elsif ( $checked_out ne $record->{ref} ) {
+                            push @missing, "the work tree it records, $claimed, which is a git repository "
+                              . "but is checked out to '$checked_out', not $record->{ref}";
                         }
                     }
                 }

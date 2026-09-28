@@ -2,7 +2,7 @@ Revision history for Tira
 
 5.235  2026-09-28
     - TKT-1190: every unknown-field die (--fields, --exclude-fields,
-      --where, tira.diff --fields, tira.history --field - exact wording
+      --where, tira.diff --fields, tira.history.list --field - exact wording
       varies by call site) named only the bad field, never a single valid
       one, even though the check already held the full valid-field set in
       scope. Each now appends " - valid fields: ..." to its own message, so

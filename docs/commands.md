@@ -3862,9 +3862,9 @@ records, not the board.
 
 **An unknown field name now names the valid ones too, since 5.235** (TKT-1190):
 `--fields`, `--exclude-fields`, `--where`, `tira.diff --fields`, and
-`tira.history --field` all die on a typo with "Unknown field name" - the exact
-wording varies by call site (a bare `Unknown field 'X'` for record reads and
-`tira.diff`/`tira.history --field`, `Unknown history field 'X'` for
+`tira.history.list --field` all die on a typo with "Unknown field name" - the
+exact wording varies by call site (a bare `Unknown field 'X'` for record reads
+and `tira.diff`/`tira.history.list --field`, `Unknown history field 'X'` for
 `tira.history.list --where` specifically) - and until now that was the whole
 message, so fixing it meant a source read rather than a second glance at the
 error. Each now appends ` - valid fields: ...`, the same field set the check

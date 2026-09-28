@@ -1,5 +1,15 @@
 Revision history for Tira
 
+5.235  2026-09-28
+    - TKT-1190: every unknown-field die (--fields, --exclude-fields,
+      --where, tira.diff --fields, tira.history --field - exact wording
+      varies by call site) named only the bad field, never a single valid
+      one, even though the check already held the full valid-field set in
+      scope. Each now appends " - valid fields: ..." to its own message, so
+      fixing a typo needs a second glance at the error instead of a source
+      read. Found self-testing TKT-1189's own police.outstanding
+      bulk-cleanup pass.
+
 5.234  2026-09-28
     - TKT-1185: docs/JOBS.md's own TKT-1184 paragraph said
       _resolve_bare_command checks $ENV{PERL_LOCAL_LIB_ROOT}/bin/ as a

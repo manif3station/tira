@@ -2069,14 +2069,22 @@ and every finished card was judged as work still in progress.
 
 ### `tira.police.outstanding`
 
-Each row carries `id`, `rule`, `policy`, `ref`, `assignee`, `action`, `seen`,
-`tone`, `first_seen` and `last_seen`. A police pass already named the policy
-that raised a finding; the outstanding list dropped it until 3.61 - the one
-field that says WHICH declaration to change was present where nobody acts
-and absent where everybody does, worst where a rule is declared more than
-once (`card-duration` on this board's own 8 columns, `checklist-idle` on 7).
-`policy` reuses what the pass already computed rather than inventing
+Each row carries `id`, `rule`, `policy`, `ref`, `assignee`, `action`, `detail`,
+`message`, `seen`, `tone`, `first_seen` and `last_seen`. A police pass already
+named the policy that raised a finding; the outstanding list dropped it until
+3.61 - the one field that says WHICH declaration to change was present where
+nobody acts and absent where everybody does, worst where a rule is declared
+more than once (`card-duration` on this board's own 8 columns, `checklist-idle`
+on 7). `policy` reuses what the pass already computed rather than inventing
 anything. TKT-380.
+
+`detail` and `message` (TKT-1189) carry the same per-finding text a pass
+already computes and shows on its own read - for `required-unsatisfied`, the
+specific "REQ-XXX: item text" naming which required item is unmet. Before
+this, diagnosing an outstanding `required-unsatisfied` violation needed a
+`ticket.show` round-trip per ref just to find out which item; the ledger kept
+only `rule`/`policy`/`ref`/`action`/`assignee`/`project`, dropping the two
+fields that already answered the question.
 
 | Argument | Required | What it is for |
 | --- | --- | --- |
@@ -3851,6 +3859,17 @@ inequality (and `!=` empty meaning has-a-value), and `~` case-insensitive
 array containment that never crashes on scalars. Unknown fields and
 operatorless clauses exit 2. A query returning three records now costs three
 records, not the board.
+
+**An unknown field name now names the valid ones too, since 5.235** (TKT-1190):
+`--fields`, `--exclude-fields`, `--where`, `tira.diff --fields`, and
+`tira.history --field` all die on a typo with "Unknown field name" - the exact
+wording varies by call site (a bare `Unknown field 'X'` for record reads and
+`tira.diff`/`tira.history --field`, `Unknown history field 'X'` for
+`tira.history.list --where` specifically) - and until now that was the whole
+message, so fixing it meant a source read rather than a second glance at the
+error. Each now appends ` - valid fields: ...`, the same field set the check
+was already comparing against, with nothing else changed about which names
+are valid, which prefix a given call site uses, or the `--where` grammar.
 
 Comment reads window and slim down: `--last N`/`--first N` (newest-last
 storage order), `--meta-only` (id, author, stamps, body length, attachment

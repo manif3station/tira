@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.234';
+our $VERSION = '5.235';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -2208,6 +2208,15 @@ my @RECORD_FIELDS = qw(
 );
 my %RECORD_FIELD = map { $_ => 1 } @RECORD_FIELDS;
 
+# TKT-1190. Every "Unknown field '...'" die already holds the valid-field
+# hash it just checked the bad name against - this turns that hash into the
+# same sentence's own answer, so fixing a typo needs a second glance at the
+# error rather than a source read.
+sub _unknown_field_suffix {
+    my ($known) = @_;
+    return ' - valid fields: ' . join( ', ', sort keys %{$known} );
+}
+
 # CA01-CA03: validate --fields/--exclude-fields input (comma lists,
 # repeatable) into a projection plan. Unknown and empty names die so a typo
 # can never quietly return an empty object.
@@ -2278,7 +2287,7 @@ sub _field_projection {
         my @names = map { split /,/, $_, -1 } @{ $args{$side} };
         for my $name (@names) {
             die "Empty field name in field selection\n" if !length $name;
-            die "Unknown field '$name'\n" if !$RECORD_FIELD{$name};
+            die "Unknown field '$name'" . _unknown_field_suffix( \%RECORD_FIELD ) . "\n" if !$RECORD_FIELD{$name};
         }
         $plan{$side} = { map { $_ => 1 } @names };
     }
@@ -2347,7 +2356,7 @@ sub _parse_where {
     for my $raw ( @{$clauses} ) {
         my ( $field, $operator, $value ) = ( $raw // '' ) =~ /\A([A-Za-z_]+)(!=|~|=)(.*)\z/s
           or die "Where filter must be FIELD=VALUE, FIELD!=VALUE, or FIELD~VALUE\n";
-        die "Unknown ${label}field '$field'\n" if !$known->{$field};
+        die "Unknown ${label}field '$field'" . _unknown_field_suffix($known) . "\n" if !$known->{$field};
         push @parsed, { field => $field, operator => $operator, value => $value };
     }
     return \@parsed;
@@ -2533,7 +2542,7 @@ sub diff_records {
         my @names = map { split /,/, $_, -1 } @{ $args{fields} };
         for my $name (@names) {
             die "Empty field name in field selection\n" if !length $name;
-            die "Unknown field '$name'\n" if !$RECORD_FIELD{$name};
+            die "Unknown field '$name'" . _unknown_field_suffix( \%RECORD_FIELD ) . "\n" if !$RECORD_FIELD{$name};
         }
         $scope = { map { $_ => 1 } @names };
     }
@@ -15768,7 +15777,7 @@ sub history_list {
         die "History windows must be zero or a positive count\n" if $window < 0;
     }
     if ( defined $field ) {
-        die "Unknown field '$field'\n" if !$HISTORY_FIELD{$field};
+        die "Unknown field '$field'" . _unknown_field_suffix( \%HISTORY_FIELD ) . "\n" if !$HISTORY_FIELD{$field};
     }
     my ( undef, $record ) = $self->_record_data( %args, project => $root );
     my $path = $self->_journal_path( $root, $record->{ref} );

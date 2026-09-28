@@ -2187,6 +2187,8 @@ Also rewrites the `column` tag stored on every record's `required_items` entries
 ### UC-045: Filter server-side on any field
 **Implemented.** `d2 tira.ticket.list --assignee ada` remains; `d2 tira.ticket.list --where column=backlog --where sdlc_gate= -o json` returns parked tickets with no gate in one cheap call, and `--where labels~Zenandi-Developer` checks label coverage without an export.
 
+**A typo in the field name now answers its own question, since 5.235** (TKT-1190): `--fields`, `--exclude-fields`, `--where`, `tira.diff --fields`, and `tira.history --field` all die on an unknown name (the exact wording varies by call site - a bare `Unknown field 'X'` for record reads and `tira.diff`/`tira.history --field`, `Unknown history field 'X'` for `tira.history.list --where`) - and until now that was the entire message, even though the check already held the full valid-field set in scope to compare against. Self-found doing TKT-1189's own police.outstanding bulk-cleanup pass, where a typo'd `--fields` meant a source read to find the right name. All four call sites now append ` - valid fields: ...` to their own die, changing nothing about which names are valid, which prefix each site uses, or the `--where` grammar itself.
+
 ### UC-046: Watch the board with a first-class diff
 **Implemented.** `d2 tira.ticket.list --parent EPC-001` still filters by parent; `d2 tira.diff --since 2026-08-07T10:30:00Z -o json` replaces a hand-written watcher — kinds, current column and gate, and new-comment ids in one small call, with `now` to chain the next poll.
 

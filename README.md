@@ -45,6 +45,11 @@ field is excluded from the total rather than folded in as a zero. Since
 `{count, sum}` - rather than `--count` silently winning and dropping the
 total; the CLI's human-output branch prints both lines (`N` then `sum: N`)
 the same way `-o json`/`-o toon` return both keys.
+Since 5.235 (TKT-1190), an unknown field name passed to `--fields`,
+`--exclude-fields`, `--where`, `tira.diff --fields`, or `tira.history
+--field` dies with the valid field names alongside the bad one, rather than
+just the bad name — the same set the check was already comparing against,
+now said out loud.
 Since 5.89, `gate.add --details` refuses a whitespace-only value the same
 way it refuses an empty one — the last of this "required explanation"
 field family (evidence, checklist, required-action) still testing for

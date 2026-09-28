@@ -213,9 +213,12 @@ under a plain `perl -e` gives `/usr/bin`, and `/usr/bin/d2` does not exist.
 `_resolve_bare_command` now also checks `$ENV{PERL_LOCAL_LIB_ROOT}/bin/` -
 `local::lib`'s own activation sets this independently of both `$^X` and
 `PATH`, and it reliably names the directory a `local::lib` install's own
-wrapper scripts (`d2` included) actually live in. Checked first, purely
-additive: the beside-`$^X` and `PATH` fallbacks are unchanged and still run
-when it is unset or does not resolve the word.
+wrapper scripts (`d2` included) actually live in. `PERL_LOCAL_LIB_ROOT` can
+be colon-separated when roots are stacked, with the active one prepended
+(`local::lib`'s own docs) - each is checked in order, the same as the
+`PATH` fallback below it, not just the first (Codex review). Checked
+first, purely additive: the beside-`$^X` and `PATH` fallbacks are
+unchanged and still run when it is unset or does not resolve the word.
 
 ---
 

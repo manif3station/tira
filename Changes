@@ -1,5 +1,13 @@
 Revision history for Tira
 
+5.234  2026-09-28
+    - TKT-1185: docs/JOBS.md's own TKT-1184 paragraph said
+      _resolve_bare_command checks $ENV{PERL_LOCAL_LIB_ROOT}/bin/ as a
+      single path - the shipped code splits it on the path separator and
+      checks each stacked root in order (Codex's own correction, applied
+      in code but never carried back into the prose). Doc now matches the
+      code exactly.
+
 5.233  2026-09-28
     - TKT-1184: _resolve_bare_command (TKT-1093/TKT-1129) resolved a
       scheduled job's bare command word beside $^X before falling back to

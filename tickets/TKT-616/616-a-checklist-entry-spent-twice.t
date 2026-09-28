@@ -10,6 +10,18 @@
 # own checklist entry was already ticked on the first pass, while a LATER
 # column's entry is still outstanding (so the checklist as a whole is not
 # yet "complete" - the global complete-checklist exemption does not apply).
+#
+# TKT-1191: moved here from t/ (was t/616-a-checklist-entry-spent-twice.t).
+# It is a deliberate, still-red ground-truth reproduction, parked pending
+# Q-186 (folded into the backward-move-semantics family: TKT-636, TKT-643,
+# TKT-654, TKT-661, TKT-702, TKT-725) - not something anyone is actively
+# fixing right now. Leaving a red test inside t/ breaks `prove -lr t` for
+# EVERY ticket's own gate.run, since that run has no per-test exemption -
+# confirmed live: it blocked TKT-1190's gate.run despite being entirely
+# unrelated to that ticket. Kept here, still runnable directly (`prove -Ilib
+# tickets/TKT-616/616-a-checklist-entry-spent-twice.t` from the repo root),
+# as the same evidence TKT-616's own required-action proof already commits
+# to keeping - just outside prove's own default discovery path.
 
 use strict;
 use warnings;

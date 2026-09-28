@@ -2355,8 +2355,9 @@ the plain functions `_render_view`, `_view_asset` and `json_object`.
 
 **A `<key>`-shaped substring inside `<description>` could be mistaken for a second issue, since 5.199** (TKT-1154). The key-extraction regex scanned the whole file as raw text, not scoped to the item's own top-level fields - so a `<description>` quoting example markup containing a literal `<key>...</key>`-shaped substring (a realistic case: Jira tickets about markup or config commonly quote such examples) was counted as a second issue key, wrongly refusing a perfectly valid single-issue export with "takes exactly one issue at a time", naming a key that was never a real Jira issue. Found by the hourly bug hunt, reproduced live in a container. Fixed by skipping `<description>...</description>` spans before running the key regex; the genuine multi-issue refusal (`t/1160`) still works. Codex review caught the first version of this fix: a plain non-greedy match ended early at a literal `</description>` substring inside CDATA-wrapped description content, leaving a real embedded `<key>` tag unstripped - the strip now tries the CDATA-wrapped form first, matching through to the actual closing `]]>` before requiring `</description>`, so a description's own CDATA content can safely contain that literal text.
 
-`lib/Tira.pm` is 16,308 lines now (TKT-1172's own cross-reference comment
-near `_with_project_lock`); it was 16,301 lines as of TKT-643's own fix,
+`lib/Tira.pm` is 16,317 lines now (TKT-1190's own `_unknown_field_suffix`
+helper and its four call sites); it was 16,308 lines as of TKT-1172's own
+cross-reference comment near `_with_project_lock`); it was 16,301 lines as of TKT-643's own fix,
 adding the `required-unsatisfied` police rule; it was 16,269 lines as of
 TKT-1166's own fix, folding `sum` into `record_list`'s count-branch
 return; it was 16,265 lines as of

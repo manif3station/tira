@@ -1945,6 +1945,18 @@ every `rm -rf cover_db` call site had to switch to clearing its contents
 rather than the mount point itself, which `rm -rf` cannot remove while
 mounted.
 
+**A red test left inside `t/` fails the plain suite for every ticket's `d2
+gate.run`, not only the one that left it there, since 5.236** (TKT-1191).
+`prove -lr t` has no per-test exemption, so a red test anywhere under `t/`
+- however deliberate - fails the gate for a commit that never touched it.
+Two such tests were found this way: `t/593-an-exec-path-instead-of-a-harness.t`
+(TKT-959, shipped) broken by the later TKT-1002 fix changing the executor's
+own resolution order, and `t/616-a-checklist-entry-spent-twice.t` (TKT-616)
+deliberately committed red as parked ground-truth evidence. Both fixed -
+t/593 corrected, t/616 moved to `tickets/TKT-616/` (still runnable, no
+longer inside `prove`'s own discovery path) - see SKILLS.md's own TKT-1191
+paragraph for the full detail.
+
 Without `--pid`, the 600-second ceiling was shorter than either gate this
 repo ran at the time - coverage at 846s, pre-push at 15m and counting - so
 the commonest legitimate reason for a suspension (waiting on a gate) always

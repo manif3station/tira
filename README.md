@@ -1180,6 +1180,15 @@ is how you ask whether the tree `HEAD` currently points at was already proved
 records automatically any more - the hook stopped consulting them along with
 the suite they existed to skip - so the record is for you, not for the gate.
 
+A red test left inside `t/` fails `d2 gate.run`'s plain suite for every
+ticket, not only the one that left it there, since 5.236 (TKT-1191) -
+`prove -lr t` has no per-test exemption. Found self-testing TKT-1190's own
+gate.run: t/593 (TKT-959, shipped) had gone stale against a later fix
+(TKT-1002) changing the job executor's own PATH-resolution order, and t/616
+(TKT-616) was deliberately committed red as parked evidence, against this
+project's own rule to keep an unfinished red test out of `t/`. Both fixed;
+see SKILLS.md's own TKT-1191 paragraph for the full detail.
+
 When a gate asks for a code review, run it through `d2 review.worktree`
 rather than pointing the reviewer at the checkout:
 

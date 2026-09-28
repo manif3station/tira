@@ -76,6 +76,13 @@ my $with_bin  = "$bin:/usr/bin:/bin";
     ${$clock} = '2026-09-07T09:30:00Z';
     my $result = run_pass( $tira, $root, $store );
 
+    # TKT-1191. TKT-1002's _resolve_bare_command checks PERL_LOCAL_LIB_ROOT
+    # BEFORE ever consulting PATH, so a restricted PATH alone no longer
+    # isolates anything - the real local::lib root (set by whatever
+    # environment this test happens to run in) still resolves to the real
+    # d2, defeating the whole point of this scenario. Neutralized in both
+    # blocks below so PATH is once again the only thing that varies.
+    local $ENV{PERL_LOCAL_LIB_ROOT} = '';
     local $ENV{PATH} = $bare_path;
     Tira::CLI::Police::run_due_commands( $tira, { project => $root }, $result );
 
@@ -92,6 +99,9 @@ my $with_bin  = "$bin:/usr/bin:/bin";
     ${$clock} = '2026-09-07T09:30:00Z';
     my $result = run_pass( $tira, $root, $store );
 
+    # TKT-1191: neutralized for the same reason as the block above - only
+    # PATH should decide whether the fake d2 stand-in is found here.
+    local $ENV{PERL_LOCAL_LIB_ROOT} = '';
     local $ENV{PATH} = $with_bin;
     Tira::CLI::Police::run_due_commands( $tira, { project => $root }, $result );
 

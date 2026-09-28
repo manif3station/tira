@@ -201,6 +201,22 @@ project's primary test and runtime environment is Linux, and implementing
 full Windows executable-extension resolution here is a larger undertaking
 than a narrowly-scoped exec-time fallback warrants.
 
+**The beside-`$^X` claim above was wrong for `d2` itself, corrected since
+5.233** (TKT-1184, found live investigating a fourth occurrence of this same
+root cause). `d2`'s own shebang is `#!/usr/bin/env perl`, which resolves
+`$^X` to whichever `perl` is first on the exec-time `PATH` - the system perl,
+not the `local::lib` perl `d2` is installed beside - so the beside-`$^X`
+check above never actually matches for `d2`, the exact command this
+project's own `JOB-004` schedules every 30 minutes
+(`d2 tira.police.outstanding`). Reproduced live: `File::Spec->splitpath($^X)`
+under a plain `perl -e` gives `/usr/bin`, and `/usr/bin/d2` does not exist.
+`_resolve_bare_command` now also checks `$ENV{PERL_LOCAL_LIB_ROOT}/bin/` -
+`local::lib`'s own activation sets this independently of both `$^X` and
+`PATH`, and it reliably names the directory a `local::lib` install's own
+wrapper scripts (`d2` included) actually live in. Checked first, purely
+additive: the beside-`$^X` and `PATH` fallbacks are unchanged and still run
+when it is unset or does not resolve the word.
+
 ---
 
 ## Worked examples

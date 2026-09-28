@@ -174,23 +174,58 @@ sub advance_monitor_output {
 # in this package, which would be a different variable the test's local()
 # never touches.
 
-# TKT-1129. A bare word's ONLY reliable home, independent of the served
-# board process's own ambient $ENV{PATH}/cwd at the exact moment a job
-# fires, is beside the running perl interpreter itself - a d2/local::lib
-# install always puts its own wrapper scripts in the same bin/ as $^X.
-# Checked first, before an ordinary PATH search: a relative PATH entry
-# (docs/JOBS.md's own documented pitfall) resolves against whatever the
-# PROCESS's cwd happens to be right now, which can drift to an unrelated
-# directory in a long-running served board - exactly what broke JOB-008
-# live. Absolute PATH entries are still searched as a fallback, since
-# those do not depend on cwd either; relative ones are skipped rather
-# than trusted, and an unresolved word is returned unchanged so exec's
-# own error surfaces exactly as it always did.
+# TKT-1129. A bare word's home, independent of the served board process's
+# own ambient $ENV{PATH}/cwd at the exact moment a job fires, was assumed
+# to be beside the running perl interpreter itself - "a d2/local::lib
+# install always puts its own wrapper scripts in the same bin/ as $^X".
+# TKT-1184 found that assumption false for d2 itself: its own shebang is
+# `#!/usr/bin/env perl`, which resolves to whichever `perl` is first on
+# PATH at exec time (the system perl, /usr/bin/perl here) rather than the
+# local::lib perl d2 is installed beside - so $^X for a running d2 process
+# is never in the same directory as d2 itself, and the beside-perl check
+# below silently never matches for tira's own most common job command,
+# `d2 tira.police.outstanding` (JOB-004's default). Reproduced live:
+# File::Spec->splitpath($^X) under a plain `perl -e` gave /usr/bin, and
+# /usr/bin/d2 does not exist.
+#
+# local::lib's own PERL_LOCAL_LIB_ROOT env var - set by its activation,
+# independent of both $^X and $ENV{PATH} - is checked first as a second,
+# more reliable home: a cpanm/local::lib install's own wrapper scripts
+# always live in that root's bin/, which is exactly where d2 lives
+# (confirmed live: PERL_LOCAL_LIB_ROOT=/home/mv/perl5, d2 at
+# /home/mv/perl5/bin/d2). Colon-separated like PATH when roots are
+# stacked, with the active one prepended (local::lib's own docs) - each is
+# checked in order, not just the first (Codex review). Checked first,
+# before an ordinary PATH search: a
+# relative PATH entry (docs/JOBS.md's own documented pitfall) resolves
+# against whatever the PROCESS's cwd happens to be right now, which can
+# drift to an unrelated directory in a long-running served board - exactly
+# what broke JOB-008 live. Absolute PATH entries are still searched as a
+# fallback, since those do not depend on cwd either; relative ones are
+# skipped rather than trusted, and an unresolved word is returned
+# unchanged so exec's own error surfaces exactly as it always did.
 sub _resolve_bare_command {
     my ($word) = @_;
     return $word if !defined $word || $word eq '' || $word =~ m{[\\/]};
     require File::Spec;
     require Config;
+
+    # Checked first: cheap, and covers the one case the beside-perl check
+    # below cannot - a wrapper script whose own shebang resolves $^X to a
+    # DIFFERENT perl than the one it was installed alongside. Only an
+    # absolute root is trusted, the same standard every other candidate
+    # here is held to.
+    #
+    # local::lib's own activation can STACK roots - PERL_LOCAL_LIB_ROOT
+    # holds one, colon-separated like PATH, with the currently-active root
+    # prepended (local::lib's own docs) - so a single-path read here would
+    # miss a wrapper installed under an earlier-stacked root (Codex
+    # review). Each is checked in order, same as the PATH search below.
+    for my $lib_root ( split /\Q$Config::Config{path_sep}\E/, $ENV{PERL_LOCAL_LIB_ROOT} // '' ) {
+        next if $lib_root eq '' || !File::Spec->file_name_is_absolute($lib_root);
+        my $beside_lib_root = File::Spec->catfile( $lib_root, 'bin', $word );
+        return $beside_lib_root if -f $beside_lib_root && -x $beside_lib_root;
+    }
 
     # $^X is not guaranteed absolute - Perl only promises it is what the
     # calling shell used to invoke this interpreter, which can be a bare

@@ -1,5 +1,22 @@
 Revision history for Tira
 
+5.233  2026-09-28
+    - TKT-1184: _resolve_bare_command (TKT-1093/TKT-1129) resolved a
+      scheduled job's bare command word beside $^X before falling back to
+      $ENV{PATH}, on the documented assumption that a d2/local::lib
+      install always puts its own wrapper scripts in the same bin/ as
+      $^X. Found live investigating TKT-1183 that this is false for d2
+      itself: its own shebang is #!/usr/bin/env perl, which resolves $^X
+      to the system perl at exec time rather than the local::lib perl d2
+      is installed beside, so the beside-$^X check never matched for d2 -
+      tira's own most common job command (JOB-004's default,
+      "d2 tira.police.outstanding"). Added PERL_LOCAL_LIB_ROOT/bin as an
+      additional, cheap resolution check before the beside-$^X and PATH
+      fallbacks - local::lib's own env var reliably names the directory
+      its wrapper scripts live in, independent of both $^X and
+      $ENV{PATH}. Purely additive; existing beside-$^X/PATH coverage is
+      unchanged (t/1148 still passes). New test t/1184.
+
 5.232  2026-09-27
     - TKT-1177: d2 docker compose exec test can refuse "service test is not
       running" against a stack it had itself just started, though ps (no

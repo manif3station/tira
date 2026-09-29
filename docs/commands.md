@@ -2090,11 +2090,14 @@ more than once (`card-duration` on this board's own 8 columns, `checklist-idle`
 on 7). `policy` reuses what the pass already computed rather than inventing
 anything. TKT-380.
 
-`detail` and `message` (TKT-1189) carry the same per-finding text a pass
-already computes and shows on its own read - for `required-unsatisfied`, the
-specific "REQ-XXX: item text" naming which required item is unmet. Before
-this, diagnosing an outstanding `required-unsatisfied` violation needed a
-`ticket.show` round-trip per ref just to find out which item; the ledger kept
+`detail` and `message` (TKT-1189) are now both kept on the ledger entry
+instead of being dropped after the pass that computed them - `detail` is the
+rule's own finding text, which for `required-unsatisfied` is the specific
+"REQ-XXX: item text" naming which required item is unmet; `message` is the
+policy's own formatted message (from its optional custom template), which
+does not always repeat `detail` verbatim. Before this, diagnosing an
+outstanding `required-unsatisfied` violation needed a `ticket.show`
+round-trip per ref just to find out which item; the ledger kept
 only `rule`/`policy`/`ref`/`action`/`assignee`/`project`, dropping the two
 fields that already answered the question.
 

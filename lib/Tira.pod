@@ -1506,6 +1506,12 @@ C<policy>, the id of the declaration that raised it - reused from what the
 pass already recorded, not recomputed - so a rule declared more than once
 still says which one to change. TKT-380.
 
+Each row also carries C<detail> and C<message> (TKT-1189): the same
+per-finding text a police pass already computes and shows on its own read
+- for C<required-unsatisfied>, the specific unmet required-action item -
+kept on the ledger entry itself rather than being dropped after the pass
+that computed it.
+
 =head2 police_outstanding_taken_at
 
 Returns the timestamp of the last police pass recorded in a store.

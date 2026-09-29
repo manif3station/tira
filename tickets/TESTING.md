@@ -800,3 +800,14 @@ typo - so only the alias table remains.
 Also run: `t/370`, `t/440`, `t/1086` (the neighbouring suggestion tests),
 `t/410`, `t/03-metadata.t`, `t/876` - all pass. Full suite and coverage:
 `d2 gate.run` on the committed HEAD.
+
+**Gate found what `d2 dev.run` cannot.** The first two gate runs on this change
+failed in the plain suite, about 90 seconds in, printing only `Result: FAIL`.
+`d2 dev.run` passed the identical tree because it leaves out `t/70-doc-examples.t`
+by default, and the gate runs it. The cause was my own prose: SKILLS.md showed
+`d2 tira.comment.add --ref X --body test` as a refused call, and `t/70` treats every
+documented `d2 ...` command line as one that must run, so it failed on the
+refusal (tests 8 and 17). The line now describes the call in words. To read
+the plain log the gate discards, check out HEAD and run its `prove` step in the
+`gate` service yourself; `t/70` and `t/172` are the two to run before writing any
+command line into the docs.

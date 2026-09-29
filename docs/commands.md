@@ -2469,7 +2469,7 @@ json-pretty/toon output returns `{sum: N, records: [...]}`; human output prints 
 its own line before the record table. A card that never set the field is
 excluded from the total, not folded in as a silent zero. Combined with
 `--count` (TKT-1166, since 5.223), both return together - `{count, sum}`
-for JSON/toon, `N` then `sum: N` for human output - rather than `--count`
+for JSON/json-pretty/toon, `N` then `sum: N` for human output - rather than `--count`
 winning unconditionally and silently discarding the total. Combined with
 `--refs-only` (TKT-1167, since 5.222), the two are refused together
 instead: `--refs-only`'s own return is a bare arrayref of refs, not a

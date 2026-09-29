@@ -13,9 +13,10 @@ Revision history for Tira
       now poll for the condition with a 20 second deadline (Time::HiRes).
       Test-only: nothing under lib/ changed except this version. Guarded by
       t/1199-a-fractional-sleep-is-not-a-wait.t, which walks t/ for a
-      fractional built-in sleep (its pattern pinned on eleven sample lines,
-      CORE::sleep included) and checks the two start waits; 3 of 14
-      assertions failed before, all 14 pass after. The start waits are
+      fractional built-in sleep (its pattern pinned on sample lines,
+      CORE::sleep included even in a file that imports Time::HiRes's sleep)
+      and checks the two start waits; 3 of 17 assertions failed before, all
+      17 pass after. The start waits are
       asserted, so a timeout is reported as one. Whether both files hold
       under load is shown by the gate run, not by a timed test.
 

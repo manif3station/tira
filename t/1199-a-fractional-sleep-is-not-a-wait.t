@@ -48,12 +48,24 @@ for my $line ( 'sleep 1;', 'sleep(2);', 'Time::HiRes::sleep(0.1);', 'time.sleep(
     unlike( $line, $fractional_sleep, "leaves alone: $line" );
 }
 
+# Importing sleep from Time::HiRes replaces the bare name only; an explicit
+# CORE::sleep is still the whole-second built-in in that same file.
+my $core_sleep = qr/(?<=CORE::)sleep\s*\(?\s*\d*\.\d+/;
+
+sub truncates {
+    my ($code) = @_;
+    return $code =~ $core_sleep if $code =~ /use\s+Time::HiRes[^;]*\bsleep\b/;
+    return $code =~ $fractional_sleep;
+}
+
+ok( !truncates("use Time::HiRes qw(sleep);\nsleep 0.1;\n"), 'a file importing HiRes sleep may use the bare name fractionally' );
+ok( truncates("use Time::HiRes qw(sleep);\nCORE::sleep 0.1;\n"), 'but an explicit CORE::sleep in that same file is still flagged' );
+ok( truncates("sleep 0.1;\n"), 'and without the import the bare name is flagged' );
+
 my @fractional;
 for my $path ( sort @files ) {
     next if $path =~ m{1199-a-fractional-sleep};
-    my $code = code_of($path);
-    next if $code =~ /use\s+Time::HiRes[^;]*\bsleep\b/;
-    push @fractional, $path if $code =~ $fractional_sleep;
+    push @fractional, $path if truncates( code_of($path) );
 }
 is_deeply( \@fractional, [], 'no test waits with a fractional built-in sleep, which Perl truncates to sleep 0' );
 

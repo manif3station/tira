@@ -11618,9 +11618,15 @@ sub _violation_record_locked {
         # may have been reassigned, the policy removed, or the card discarded -
         # and a settlement addressed to somebody other than the reader who was
         # told about it reaches nobody.
+        # TKT-1189: detail/message are computed fresh on every pass (the
+        # \@view push below already carries them for whoever reads THIS
+        # pass) but were never kept on the ledger entry itself, so
+        # police_outstanding - which only ever reads the ledger - could
+        # never answer which required item was unmet without a separate
+        # ticket.show per ref.
         $entry->{about} = {
             map { defined $violation->{$_} ? ( $_ => $violation->{$_} ) : () }
-              qw(rule policy ref action assignee project)
+              qw(rule policy ref action assignee project detail message)
         };
 
         # And said only when there has been time to fix it. seen counts the
@@ -14295,6 +14301,13 @@ sub police_outstanding {
             ref => $entry->{about}{ref} // '',
             assignee => $entry->{about}{assignee} // '',
             action => $entry->{about}{action} // '',
+
+            # TKT-1189: the specific unmet item, already computed at
+            # report time (e.g. required-unsatisfied names "REQ-XXX: item
+            # text"), carried through rather than requiring a follow-up
+            # ticket.show per ref just to find it.
+            detail => $entry->{about}{detail} // '',
+            message => $entry->{about}{message} // '',
             seen => $entry->{seen},
             tone => $entry->{tone},
             first_seen => $entry->{first_seen},

@@ -50,7 +50,7 @@ sub run_cli {
     return ( $status, $out, $err );
 }
 
-my ( $status, $out, $err ) = run_cli( '--sum', 'points' );
+my ( $status, $out, $err ) = run_cli( '--sum', 'points', '-o', 'human' );
 is( $status, 0, 'ticket.list --sum runs cleanly through the real CLI dispatch with no --count' );
 like( $out, qr/^sum: 12$/m, 'the CLI prints the sum line itself, not just the engine-level hash' )
   or diag("got: $out");

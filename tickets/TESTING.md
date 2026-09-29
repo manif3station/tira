@@ -733,3 +733,38 @@ longer can only turn that into a pass, never into a false failure.
 
 Not proved by anything run before the gate: that both files now hold under
 load. That is what the gate's parallel pass is for.
+
+
+## TKT-1198 — the temporary file `_canonical_path` could strand (5.239)
+
+`_atomic_write` creates its temporary file with `UNLINK => 0`, so every way out
+after the file exists has to remove it. TKT-1196 covered the print, close and
+replace exits and left one alone on purpose: `_canonical_path` runs on the
+fresh temporary path before any of them, and dies with `Cannot resolve` or
+`Unsafe control character`. Either die left a `.tira-write-*` file behind.
+
+`t/1198-a-canonical-path-failure-keeps-no-temp-file.t` proves both branches:
+
+- **The control-character branch with the real thing.** A directory named
+  `ctl\x01dir` is created and written into, so the true `Unsafe control
+  character` die is exercised, not a stand-in. Before the fix the directory
+  held `.tira-write-QRDsQR` afterwards.
+- **The `Cannot resolve` branch by forcing the die.** `realpath` does not fail
+  on a file that exists, so `_canonical_path` is made to die with a chosen
+  message and the test asserts that exact message reaches the caller.
+- **Repetition and the control.** Five failures in a row leave the directory
+  empty, and an ordinary write still returns 1, lands its content and leaves
+  nothing.
+
+Red before, green after, both in the dev container: 3 of 12 failed (tests 3, 7
+and 9, each on a leftover file) and all 12 pass. The message assertions passed
+on unfixed code, which is right - the die always propagated unchanged; only the
+file was the defect.
+
+The suite-level checks that cost the most attention here were not about the fix:
+`t/876` measures `lib/Tira.pm` and holds every present-tense "is N lines" claim
+in the markdown to it, so a 12-line change to the module is a documentation
+change in `README.md` and `SKILLS.md` too, and the test fails until they agree.
+
+Not proved by anything run so far: the full suite and the 100.0 coverage of the
+new branch. That is `d2 gate.run` on the committed HEAD.

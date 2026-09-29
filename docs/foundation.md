@@ -188,9 +188,12 @@ becoming a delete followed by a rename. When the write, the close or the replace
 fails, Tira tries to remove the temporary file before reporting the original
 error, so a full disk or a quota no longer leaves a `.tira-write-*` file behind
 in the ordinary case (TKT-1196; before it, a failed write or close left one each
-time). The removal is best effort - if it fails, the original error is still the
-one reported - and a failure while resolving the temporary file's own path is a
-separate, still-open gap (TKT-1198). The full suite and every shipped Perl
+time). The same holds when Tira cannot validate the temporary file's own path
+right after creating it: if the path will not resolve, or resolves to something
+with a control character in it (a board directory whose name contains one), Tira
+tries to remove the file and reports the original message unchanged (TKT-1198;
+before it, that exit left one each time). The removal is best effort - if it fails, the
+original error is still the one reported. The full suite and every shipped Perl
 entrypoint pass under taint mode.
 
 The browser dashboard is served by Starman, plain or over TLS. It used to use

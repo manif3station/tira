@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.238';
+our $VERSION = '5.239';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -16290,7 +16290,19 @@ sub _atomic_write {
     my ( $self, $path, $content ) = @_;
     my $dir = dirname($path);
     my ( $fh, $temporary ) = tempfile( '.tira-write-XXXXXX', DIR => $dir, UNLINK => 0 );
-    $temporary = $self->_canonical_path( $temporary, "temporary file for '$path'" );
+
+    # The file already exists by now, so a _canonical_path that dies - the path
+    # will not resolve, or resolves to something with a control character in it -
+    # would leave it behind (TKT-1198). The unresolved path is the only one there
+    # is to remove, and the original message goes on to the caller unchanged.
+    my $canonical = eval { $self->_canonical_path( $temporary, "temporary file for '$path'" ) };
+    if ( !defined $canonical ) {
+        my $error = $@;
+        close $fh;
+        unlink $temporary;
+        die $error;
+    }
+    $temporary = $canonical;
     binmode $fh, ':raw';
 
     # The temporary file is created with UNLINK => 0, so nothing removes it

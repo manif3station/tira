@@ -22,7 +22,15 @@ use Tira;
 # ENOSPC. A small write is buffered and fails at close; a write bigger than the
 # buffer fails at print. Those are the two branches under test.
 
-plan skip_all => '/dev/full is not available here' if !-w '/dev/full';
+use POSIX ();
+
+# Being writable by -w proves nothing about opening it, so the probe opens it.
+plan skip_all => '/dev/full cannot be opened here (POSIX only)'
+  if !open( my $probe, '>', '/dev/full' );
+close $probe;
+
+# The original error must survive the cleanup, not just its prefix.
+my $enospc = do { local $! = POSIX::ENOSPC(); "$!" };
 
 my $tmp  = tempdir( CLEANUP => 1 );
 my $tira = Tira->new( clock => sub { '2026-09-29T18:00:00Z' } );
@@ -59,6 +67,7 @@ sub write_that_cannot_land {
     my ( $ok, $error, $target ) = write_that_cannot_land( $dir, "small enough to stay in the buffer\n" );
     ok( !$ok, 'a write that cannot land is refused' );
     like( $error, qr/\ACannot close temporary file for '\Q$target\E'/, 'and says the close failed, as it always did' );
+    like( $error, qr/\Q$enospc\E/, 'and still carries the original ENOSPC text, which the cleanup must not overwrite' );
     is_deeply( [ leftovers($dir) ], [], 'a failed close leaves no .tira-write-* file behind' );
     ok( !-e $target, 'and the target was never created' );
 }
@@ -70,6 +79,7 @@ sub write_that_cannot_land {
     my ( $ok, $error, $target ) = write_that_cannot_land( $dir, 'x' x ( 4 * 1024 * 1024 ) );
     ok( !$ok, 'a write too big for the buffer is refused' );
     like( $error, qr/\ACannot write temporary file for '\Q$target\E'/, 'and says the write failed, as it always did' );
+    like( $error, qr/\Q$enospc\E/, 'and still carries the original ENOSPC text, which the cleanup must not overwrite' );
     is_deeply( [ leftovers($dir) ], [], 'a failed print leaves no .tira-write-* file behind' );
     ok( !-e $target, 'and the target was never created' );
 }

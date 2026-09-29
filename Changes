@@ -13,8 +13,8 @@ Revision history for Tira
       tempfile() and before any cleanup. Reproduced in a container with
       t/1196-a-failed-write-keeps-no-
       temp-file.t, which stands in for tempfile() with a handle on /dev/full:
-      2 of 10 assertions failed before the fix (the leftover file after a
-      failed close and after a failed print), all 10 pass after. Found by
+      2 of 12 assertions failed before the fix (the leftover file after a
+      failed close and after a failed print), all 12 pass after. Found by
       reading lib/Tira.pm in the 2-hourly improvement hunt.
 
 5.236  2026-09-29

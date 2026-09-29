@@ -16,6 +16,7 @@ use warnings;
 use File::Spec;
 use File::Temp qw(tempdir);
 use Test::More;
+use Time::HiRes ();
 
 use lib 'lib';
 use Tira;
@@ -63,6 +64,18 @@ sub zombies {
     return @dead;
 }
 
+# Poll for a condition with a real deadline. Perl's built-in sleep takes whole
+# seconds, so a fractional one is sleep 0 (TKT-1199); Time::HiRes's does not.
+sub wait_until {
+    my ( $condition, $seconds ) = @_;
+    my $deadline = Time::HiRes::time() + ( $seconds // 20 );
+    while ( Time::HiRes::time() < $deadline ) {
+        return 1 if $condition->();
+        Time::HiRes::sleep(0.1);
+    }
+    return $condition->() ? 1 : 0;
+}
+
 sub tree_of {
     my ($pid) = @_;
     my $listing = `ps -eo pid=,ppid= 2>/dev/null` // '';
@@ -92,14 +105,19 @@ my $pid = eval {
 ok( $pid && $pid =~ /\A[1-9][0-9]*\z/, 'the real feeder was spawned and its pid returned' )
   or done_testing, exit;
 
-sleep 1;
+# Wait for the feeder to lead its own group and to have started its command,
+# not for a second to pass: a loaded host can take longer than that, and
+# _signal_monitor signals the group only once getpgrp($pid) is $pid, while
+# signalling before the child exists leaves nothing in the group to signal.
+ok( wait_until( sub { ( getpgrp($pid) // 0 ) == $pid && scalar( () = tree_of($pid) ) >= 2 } ),
+    'the feeder came up as the leader of its own group with its command running, so a timeout is reported as one' );
 my @tree = tree_of($pid);
 cmp_ok( scalar @tree, '>=', 2, 'the monitor is more than one process - the feeder and sleep 47' );
 
 my $signalled = eval { Tira::CLI::Job::_signal_monitor($pid) };
 is( $signalled, 'group', 'the whole group was signalled' );
 
-sleep 1;
+wait_until( sub { !alive(@tree) } );
 
 # This test process is the feeder's own real parent (it called open3
 # directly, via _spawn_monitor) - unlike production, where job.start exits
@@ -201,5 +219,12 @@ disposition killed it before it reached its own C<waitpid>, so its child
 died unreaped. The feeder now traps C<TERM>, reaps whichever child it is
 currently running, and exits - reproduced and fixed after confirming the
 zombie live in a container.
+
+TKT-1199. The start of the test waits for the feeder to lead its own process
+group and to have started its command, by polling with C<wait_until> (20
+second deadline, C<Time::HiRes>), rather than sleeping a fixed second and
+hoping. C<_signal_monitor> reports C<group> only once the feeder leads its own
+group, so signalling early made the test fail inside the parallel gate run
+while it passed alone.
 
 =cut

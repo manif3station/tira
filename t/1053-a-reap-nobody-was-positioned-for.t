@@ -37,6 +37,7 @@ use File::Spec;
 use File::Temp qw(tempdir);
 use POSIX ();
 use Test::More;
+use Time::HiRes ();
 
 use lib 'lib', 't/lib';
 use Tira;
@@ -101,6 +102,18 @@ sub stat_of {
     return $listing;
 }
 
+# Poll for a condition with a real deadline. Perl's built-in sleep takes whole
+# seconds, so a fractional one is sleep 0 (TKT-1199); Time::HiRes's does not.
+sub wait_until {
+    my ( $condition, $seconds ) = @_;
+    my $deadline = Time::HiRes::time() + ( $seconds // 20 );
+    while ( Time::HiRes::time() < $deadline ) {
+        return 1 if $condition->();
+        Time::HiRes::sleep(0.1);
+    }
+    return $condition->() ? 1 : 0;
+}
+
 # THE HANDLER ITSELF, installed here exactly as dashboard.psgi installs it -
 # a worker's own startup, once, before it ever spawns anything. This test
 # process now plays the worker's part for the rest of the file: it spawns,
@@ -120,7 +133,11 @@ my $pid = eval {
 ok( $pid && $pid =~ /\A[1-9][0-9]*\z/, 'the real feeder was spawned and its pid returned' )
   or done_testing, exit;
 
-sleep 1;
+# Wait for the feeder to lead its own process group, not for a second to pass:
+# _signal_monitor signals the group only once getpgrp($pid) is $pid, and a
+# loaded host can take longer than a second to get the feeder that far.
+ok( wait_until( sub { stat_of($pid) ne '' && ( getpgrp($pid) // 0 ) == $pid } ),
+    'the feeder came up as the leader of its own process group, so a timeout is reported as one' );
 ok( stat_of($pid) !~ /\AZ/, 'freshly spawned, the feeder is not a zombie' );
 
 my $signalled = eval { Tira::CLI::Job::_signal_monitor($pid) };
@@ -129,10 +146,7 @@ is( $signalled, 'group', 'the whole group was signalled, exactly as job.stop doe
 # GIVEN TIME TO DIE AND FOR THE HANDLER TO FIRE - no waitpid of our own here,
 # which is the one thing this test must not do: that would be playing init's
 # part again, the exact assumption that let this ship unnoticed.
-for ( 1 .. 20 ) {
-    last if stat_of($pid) eq '';
-    sleep 0.1;
-}
+wait_until( sub { stat_of($pid) eq '' } );
 
 is( stat_of($pid), '',
     'and the feeder is gone from the process table entirely - reaped by the '
@@ -189,6 +203,16 @@ registry - never a blanket C<waitpid(-1, ...)>, which would also reap a
 command-mode job's own child mid-flight and hand
 C<Tira::CLI::Police::Jobs::run_due_job>'s own explicit C<waitpid> C<ECHILD>
 instead of the real exit status it is waiting for.
+
+=head1 WAITING
+
+TKT-1199. The test waits for conditions, not for time to pass: for the feeder
+to lead its own process group before it is signalled (C<_signal_monitor>
+reports C<group> only then, and C<process> otherwise), and for the feeder to
+leave the process table after it. Both use C<wait_until> with a 20 second
+deadline and C<Time::HiRes>, because the built-in C<sleep> takes whole seconds
+and a fractional one is C<sleep 0>, which is how this file failed inside the
+parallel gate run while passing alone.
 
 =head1 SEE ALSO
 

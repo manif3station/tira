@@ -703,3 +703,33 @@ two-argument `open`, and a path bound to a variable before it is opened, and it
 excludes fixture *writes* per occurrence. Widened it found 30 files where the
 new file had found 28.
 
+
+## TKT-1199 — waiting in a test (5.238)
+
+`t/1053` and `t/1014` passed alone and failed inside `d2 gate.run`, which runs
+the whole suite in parallel. Two causes, both about how a test waits:
+
+- **A fractional `sleep` is `sleep 0`.** Perl's built-in `sleep` takes whole
+  seconds and truncates. `sleep 0.1` in a twenty-turn loop meant to wait two
+  seconds for a reap spun through all twenty turns almost at once, so the
+  handler under test never had time to run. `Time::HiRes::sleep` does take a
+  fraction.
+- **A fixed `sleep 1` before a read is a guess.** It assumed the feeder had
+  started its child and become its own process-group leader within a second.
+  `_signal_monitor` reports `group` only once `getpgrp($pid)` is `$pid`, and
+  otherwise falls back to `process`, so a slow start made the assertion fail
+  for a reason that had nothing to do with what the test is about. Replacing
+  it with a wait for the pid alone made the test fail *alone* too (`process`
+  instead of `group`), which is how the real condition was found: the old
+  second had been quietly waiting for the group leadership as well.
+
+The rule: wait for the condition, with a deadline, and name the condition the
+next line depends on. Both files now poll with a small `wait_until` (20 second
+deadline). `t/1199` reads `t/` for a fractional built-in `sleep` and checks the
+two start waits; it is read from source rather than timed because a timing test
+for a timing bug would be as unreliable as what it replaces. A `sleep` after a
+signal that only makes an *absence* assertion later is left alone: waiting
+longer can only turn that into a pass, never into a false failure.
+
+Not proved by anything run before the gate: that both files now hold under
+load. That is what the gate's parallel pass is for.

@@ -23,6 +23,15 @@ rejected. Instead the refusal says the value looks like an option and names the
 `--option=VALUE` form, which joins the value to its flag rather than leaving it
 as a separate argument. TKT-742.
 
+The suggestion has a second refinement, since 5.240 (TKT-1194): edit distance
+measures letters, not meaning, so a caller who reaches for another tool's word
+for a real flag - `--body`, `--content` or `--message` for `--text` - was offered
+the declared options that happen to be a few letters away instead of the one
+that was meant. Those three names are looked up first in a short table in
+`lib/Tira/CLI/Usage.pm`, and when the command's option list declares `--text`
+it is offered alone. A real typo such as `--txet` is unaffected and still gets
+the edit-distance answer.
+
 **A leftover positional argument is named too, since 5.89** (TKT-759): a word
 that is neither a known option nor a value any option takes used to fall
 through to the same bare "Invalid command-line options", because

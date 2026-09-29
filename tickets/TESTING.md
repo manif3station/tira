@@ -768,3 +768,35 @@ change in `README.md` and `SKILLS.md` too, and the test fails until they agree.
 
 Not proved by anything run so far: the full suite and the 100.0 coverage of the
 new branch. That is `d2 gate.run` on the committed HEAD.
+
+## TKT-1194 - an alias answered with letters instead of meaning (5.240)
+
+`comment.add --body` was refused with `Did you mean: --bdd --mode --atdd` and
+never `--text`. Edit distance measures letters: `body` is two edits from `bdd`,
+two from `mode`, three from `atdd`, four from `text` (outside the threshold).
+
+What is held by `t/1194-an-alias-that-gets-a-lexical-guess.t` (13 assertions):
+
+- **The reported case.** `--body` and `--content` are answered with `--text`;
+  `--body` is not answered with `--bdd`, `--mode` or `--atdd`; the refusal
+  wrote no comment.
+- **The guard.** `%WRONG_NAME_FOR` is only used when the option list declares the
+  target. Every command shares one parsed option list, so no real command lacks
+  `--text`; that branch is held by calling `_unknown_option_message` directly
+  with a list that does.
+- **Controls.** A transposed typo (`--txet`) still gets `--text` from the edit
+  distance list, and a nonsense name still gets no guess.
+
+Red before, green after, in the dev container: 3 of 10 failed (tests 3, 4 and 6,
+the two `--text` offers and the exclusion of the near-letter flags) and then all
+pass. Two early failures were the test's own setup, not the code: `--author` is
+required by `comment.add`, and `--tex` is a valid Getopt::Long abbreviation of
+`--text`, so it was accepted and created a comment - the control is `--txet`.
+
+Tried and removed: a floor that dropped the list when candidates tie at the best
+distance. It failed `t/440` at once - `--titel` ties at two edits and is a real
+typo - so only the alias table remains.
+
+Also run: `t/370`, `t/440`, `t/1086` (the neighbouring suggestion tests),
+`t/410`, `t/03-metadata.t`, `t/876` - all pass. Full suite and coverage:
+`d2 gate.run` on the committed HEAD.

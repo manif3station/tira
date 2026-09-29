@@ -80,6 +80,14 @@ my $SKILLS_TEXT;
 # Two shapes, because two things can be wrong. A thing that is missing is
 # supplied by an option; a value that is wrong came in through one, and telling
 # somebody to supply what they just supplied would be its own kind of useless.
+# Another interface's word for a flag this one has. Kept short on purpose: only
+# names a caller reaches for because a neighbouring tool calls the same thing
+# that, and only used for a command that declares the flag it points at. TKT-1194.
+my %WRONG_NAME_FOR = (
+    body    => 'text',
+    content => 'text',
+    message => 'text',
+);
 my %SUPPLIED_BY = (
     'Record reference is required'         => [ 'ref',      'supply it with' ],
     'A card reference is required'         => [ 'ref',      'supply it with' ],
@@ -309,6 +317,19 @@ sub _unknown_option_message {
               "--$bad is an option this command has, so this looks like a VALUE",
               'that begins with two dashes rather than a mistyped flag.',
               "Join it to its option to pass it as a value: --option=--$bad ...";
+            next;
+        }
+
+        # A wrong name that is really another tool's word for a flag this command
+        # has. Edit distance measures letters, not meaning, and for these it points
+        # away from the answer: body is two edits from bdd and from mode but four
+        # from text, so comment.add --body was offered --bdd, --mode and --atdd and
+        # never --text. The table is deliberately short - only names a caller
+        # reaches for because another interface calls the same thing that - and is
+        # used only when the command does declare the flag it points at. TKT-1194.
+        my $meant = $WRONG_NAME_FOR{ lc $bad };
+        if ( defined $meant && grep { $_ eq $meant } @{$known} ) {
+            push @lines, 'Did you mean:', "  --$meant";
             next;
         }
 

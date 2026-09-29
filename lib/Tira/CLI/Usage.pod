@@ -64,6 +64,19 @@ All of it is asked for by C<--help> and by the error paths, which is a minority
 of invocations - so C<Tira::CLI> loads this module at the point one of them is
 taken.
 
+=head2 A wrong name that is another tool's word for a real flag
+
+Edit distance measures letters, not meaning, so C<comment.add --body> was offered
+C<--bdd>, C<--mode> and C<--atdd> (two, two and three edits from C<body>) and never
+C<--text> (four edits, outside the threshold of three). C<_unknown_option_message>
+now looks the name up first in C<%WRONG_NAME_FOR> (C<body>, C<content> and
+C<message> mean C<text>) and, when the option list it was given declares that
+flag, offers it alone. The table is kept short on purpose and is only consulted
+for a flag the list actually declares. Every other name goes on to the edit
+distance list unchanged, so a real typo keeps its suggestion. A floor that dropped
+the list when candidates tie was tried and removed: C<titel> ties at two edits
+between real flags and is a genuine typo. TKT-1194.
+
 =head2 How this module is loaded
 
 C<Tira::CLI> pulls this in with C<require> at the point one of its verbs runs,

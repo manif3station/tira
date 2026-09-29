@@ -319,6 +319,12 @@ line a real command with no line yet gets, printed for a name with no
 entrypoint anywhere, and a caller composing a call from it learned the
 command did not exist only once it ran. The refusal suggests a near match
 the same way an unknown option already does.
+
+An unknown option that is another tool's word for a real flag is answered with
+that flag, since 5.240 (TKT-1194): `tira.comment.add --body` is offered `--text`
+alone rather than the three flags that happen to sit two or three edits from "body".
+The table behind it is short and named in `lib/Tira/CLI/Usage.pm`; every other
+unknown option is answered by edit distance exactly as before.
 The Columns dialog also carries an Entry checkbox per row, so which
 column (or columns — a board can start new cards in more than one
 place) new cards land in is chosen from the browser, not just

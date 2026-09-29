@@ -947,7 +947,7 @@ validated the same way `--priority` is) or at creation with
 `tira.TYPE.create --numeric-value N`, and read it back like any other field
 via `show`/`list`. `tira.TYPE.list --sum FIELD` totals the declared field
 across the matched records and returns it alongside the normal record
-output — `{"sum": N, "records": [...]}` for `-o json`/`-o toon`; for
+output — `{"sum": N, "records": [...]}` for `-o json`/`-o json-pretty`/`-o toon`; for
 `-o human` the total prints first (`sum: N`) and the ordinary record table
 follows. `--sum` composes with `--column` and `--where` exactly the way
 `--count` does — each narrows which records are summed, not just which are
@@ -956,7 +956,7 @@ rather than folded in as a silent zero. Naming a field other than the one
 declared for the board, or summing before any field has been declared at
 all, exits 2 rather than returning an empty or misleading total. `--sum`
 combined with `--count` returns both together (TKT-1166) — `{count, sum}`
-for `-o json`/`-o toon`, and both lines (`N`, then `sum: N`) for
+for `-o json`/`-o json-pretty`/`-o toon`, and both lines (`N`, then `sum: N`) for
 `-o human` — rather than `--count` winning unconditionally and silently
 discarding the total the way it did before 5.223. `--sum` combined with
 `--refs-only` is refused instead of composed (TKT-1167, since 5.222):

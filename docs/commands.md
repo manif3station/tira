@@ -2464,8 +2464,8 @@ its numeric field, `tira.<type>.update --ref REF --numeric-value N` (or
 same way `--priority` is - a plain number, `12` or `-3.5`.
 
 `tira.<type>.list --sum FIELD` reads the total back, composing with
-`--column` and `--where` exactly the way `--count` already does. JSON/toon
-output returns `{sum: N, records: [...]}`; human output prints `sum: N` on
+`--column` and `--where` exactly the way `--count` already does. JSON/
+json-pretty/toon output returns `{sum: N, records: [...]}`; human output prints `sum: N` on
 its own line before the record table. A card that never set the field is
 excluded from the total, not folded in as a silent zero. Combined with
 `--count` (TKT-1166, since 5.223), both return together - `{count, sum}`

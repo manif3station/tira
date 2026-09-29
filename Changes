@@ -1,5 +1,22 @@
 Revision history for Tira
 
+5.237  2026-09-29
+    - TKT-1196: _atomic_write asks for its temporary file with UNLINK => 0, so
+      nothing removes it automatically, yet only the replace-failure exit
+      unlinked it. A failed print or a failed close (a full disk or a quota is
+      the usual cause) died and left a .tira-write-* file in the board
+      directory each time, and nothing swept them. Both exits now save the
+      error, try to remove the temporary file (best effort: a failed unlink
+      does not replace the original error) and die with the same message as
+      before. Not covered, found by Codex's review and filed as TKT-1198: a
+      die from _canonical_path, which runs on the temporary path right after
+      tempfile() and before any cleanup. Reproduced in a container with
+      t/1196-a-failed-write-keeps-no-
+      temp-file.t, which stands in for tempfile() with a handle on /dev/full:
+      2 of 10 assertions failed before the fix (the leftover file after a
+      failed close and after a failed print), all 10 pass after. Found by
+      reading lib/Tira.pm in the 2-hourly improvement hunt.
+
 5.236  2026-09-29
     - TKT-1193: SKILLS.md and docs/commands.md's --sum sections named
       only json and toon as the composing output formats, omitting

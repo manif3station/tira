@@ -184,7 +184,13 @@ they influence filenames, uses project locking, writes through same-directory
 temporary files, and atomically renames completed data. On Windows that last
 step is `MoveFileEx` with `MOVEFILE_REPLACE_EXISTING`, because `rename` there
 refuses when the destination exists; the replacement stays atomic rather than
-becoming a delete followed by a rename. The full suite and every shipped Perl
+becoming a delete followed by a rename. When the write, the close or the replace
+fails, Tira tries to remove the temporary file before reporting the original
+error, so a full disk or a quota no longer leaves a `.tira-write-*` file behind
+in the ordinary case (TKT-1196; before it, a failed write or close left one each
+time). The removal is best effort - if it fails, the original error is still the
+one reported - and a failure while resolving the temporary file's own path is a
+separate, still-open gap (TKT-1198). The full suite and every shipped Perl
 entrypoint pass under taint mode.
 
 The browser dashboard is served by Starman, plain or over TLS. It used to use

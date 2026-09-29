@@ -16,6 +16,13 @@ folders, and stores SOW, epic, and ticket records as JSON files. This module own
 safe project discovery, atomic persistence, monotonic reference allocation, and
 the shared TOON, JSON, and Markdown output contract. Text persistence is
 canonical UTF-8; legacy isolated bytes are repaired during record reads.
+A write goes through a same-directory C<.tira-write-*> temporary file that is
+renamed over the target. If the write, the close or the replace fails - a full
+disk or a quota being the usual cause - the temporary file is removed on a
+best-effort basis before the original error is reported, so an ordinary failed
+write does not leave a C<.tira-write-*> file behind. A failure of the removal
+itself is not reported over the original error, and a failure while resolving
+the temporary file's own path (TKT-1198) still leaves it (TKT-1196).
 Every work record also supports ordered checklist entries with item/status
 values and immutable record-local IDs.
 

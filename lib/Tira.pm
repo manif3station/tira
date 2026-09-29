@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.236';
+our $VERSION = '5.237';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -16292,8 +16292,23 @@ sub _atomic_write {
     my ( $fh, $temporary ) = tempfile( '.tira-write-XXXXXX', DIR => $dir, UNLINK => 0 );
     $temporary = $self->_canonical_path( $temporary, "temporary file for '$path'" );
     binmode $fh, ':raw';
-    print {$fh} $content or die "Cannot write temporary file for '$path': $!\n";
-    close $fh or die "Cannot close temporary file for '$path': $!\n";
+
+    # The temporary file is created with UNLINK => 0, so nothing removes it
+    # automatically: every way out from here on has to. A full disk or a quota
+    # error is what makes print or close fail, and without this each failed
+    # attempt left a .tira-write-* file in the board directory (TKT-1196). The
+    # error is read before unlink, which can overwrite $!.
+    print {$fh} $content or do {
+        my $error = "$!";
+        close $fh;
+        unlink $temporary;
+        die "Cannot write temporary file for '$path': $error\n";
+    };
+    close $fh or do {
+        my $error = "$!";
+        unlink $temporary;
+        die "Cannot close temporary file for '$path': $error\n";
+    };
     my $replaced = $self->_replace_file( $temporary, $path );
     $self->_bump_generation($path) if $replaced;
     $replaced or do {

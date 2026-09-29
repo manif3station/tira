@@ -1,6 +1,10 @@
 Revision history for Tira
 
 5.236  2026-09-29
+    - TKT-1193: SKILLS.md and docs/commands.md's --sum sections named
+      only json and toon as the composing output formats, omitting
+      json-pretty even though it takes the identical generic formatter
+      path. Doc-only fix, found via Codex review during TKT-1192.
     - TKT-1189: tira.police.outstanding's ledger rows now carry detail and
       message, the same per-finding text a police pass already computes
       and shows on its own read (for required-unsatisfied, the specific

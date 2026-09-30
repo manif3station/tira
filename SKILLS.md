@@ -5046,6 +5046,10 @@ fence, but the diagnostic is only honest once it catches both shapes.
 
 **`release.record` with no gate and `job.add` with no schedule name the option, since 5.245** (TKT-1203). They said `Gate name is required` and `A schedule is required - a cron expression, or 'monitor'` - correct refusals that wrote nothing and printed no warning, but with no word about `--gate` or `--schedule`, which their usage lines require. Both messages were absent from `%SUPPLIED_BY` in `lib/Tira/CLI/Usage.pm`; they are entries now, so each reads `... - supply it with --gate` and `... - supply it with --schedule`. Found by the sweep that found TKT-1202, running every documented command with only `--author` in a developer-dashboard container. `t/1203` holds it.
 
+## tira.changes --help
+
+**`d2 tira.changes --help` prints the usage and exits 0, since 5.246** (TKT-1204). `cli/changes` parsed only `--since`, so `--help` was one more unknown option: it printed `Unknown option: help`, then the usage line, and exited 255, the only documented command whose `--help` failed. It now accepts `help`, prints `Usage: d2 tira.changes [--since VERSION]` and exits 0. A genuinely unknown option still takes the failure path with the usage, and the bare command and `--since VERSION` are untouched. Found by running `--help` for every command in `docs/commands.md`. `t/1204` holds it.
+
 ## The meta-guards
 
 TKT-865 (extended by TKT-877, TKT-903, then TKT-736). Twenty-two files in

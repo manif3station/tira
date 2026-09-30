@@ -1273,6 +1273,13 @@ required - a cron expression, or 'monitor'`, naming a thing and not the option
 --schedule`. Nothing else changes: the exit status, no warning and nothing
 written.
 
+### tira.changes --help
+
+`d2 tira.changes --help` used to answer `Unknown option: help` and exit 255,
+alone among the commands (TKT-1204, 5.246). It now prints `Usage: d2 tira.changes
+[--since VERSION]` and exits 0. A real unknown option still fails with the
+usage, and the bare command and `--since VERSION` are unchanged.
+
 ## License
 
 Tira is released under the MIT License. See [LICENSE](LICENSE).

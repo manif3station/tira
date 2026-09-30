@@ -5,6 +5,22 @@ use FindBin;
 use File::Spec;
 use Getopt::Long qw(GetOptionsFromArray);
 
+# --since VERSION, the one bound every upgrade notice already has both
+# endpoints for and could never supply - "Tira is now X - this board last
+# heard Y" - and a command that could only answer "everything since the
+# beginning". No option parsing existed here at all before this: a bogus
+# flag was silently accepted and did nothing, exit 0. TKT-404.
+my %option;
+GetOptionsFromArray( \@ARGV, \%option, 'since=s', 'help' )
+  or die "Usage: d2 tira.changes [--since VERSION]\n";
+
+# Every other command prints its usage for --help and exits 0; this one called
+# --help an unknown option and exited 255. TKT-1204.
+if ( $option{help} ) {
+    print "Usage: d2 tira.changes [--since VERSION]\n";
+    exit 0;
+}
+
 my $history = File::Spec->catfile( $FindBin::Bin, '..', 'Changes' );
 open my $fh, '<:raw', $history or die "Cannot read the Tira changelog $history: $!\n";
 my $changelog = do { local $/; <$fh> };
@@ -25,15 +41,6 @@ close $fh or die "Cannot close the Tira changelog $history: $!\n";
 die "The Tira changelog $history is empty - nothing to print. "
   . "This is a broken or half-written copy of the skill, not a release with no changes.\n"
   if !defined $changelog || $changelog !~ /\S/;
-
-# --since VERSION, the one bound every upgrade notice already has both
-# endpoints for and could never supply - "Tira is now X - this board last
-# heard Y" - and a command that could only answer "everything since the
-# beginning". No option parsing existed here at all before this: a bogus
-# flag was silently accepted and did nothing, exit 0. TKT-404.
-my %option;
-GetOptionsFromArray( \@ARGV, \%option, 'since=s' )
-  or die "Usage: d2 tira.changes [--since VERSION]\n";
 
 if ( defined $option{since} ) {
     die "Version must be MAJOR.MINOR, like 3.60\n"
@@ -67,6 +74,7 @@ tira.changes - Print the Tira changelog
 
   d2 tira.changes
   d2 tira.changes --since VERSION
+  d2 tira.changes --help
 
 =head1 DESCRIPTION
 
@@ -80,5 +88,7 @@ C<--since VERSION> prints only entries newer than the named version - the
 version itself is excluded - which is exactly the bound an upgrade notice
 already states both endpoints of. An unknown or malformed version is refused
 rather than silently producing the unbounded read.
+
+C<--help> prints the usage line and exits 0. A genuinely unknown option fails with the usage. TKT-1204.
 
 =cut

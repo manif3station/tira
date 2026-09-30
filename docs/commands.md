@@ -2687,6 +2687,11 @@ The command that raised the message is checked against a small override
 table before the single-answer default; every message with one true answer
 is untouched.
 
+**`tira.changes --help` is help, since 5.246** (TKT-1204). It printed `Unknown option:
+help` and exited 255; it now prints its usage line, `Usage: d2 tira.changes [--since
+VERSION]`, and exits 0 like every other command. An unknown option still fails
+with the usage.
+
 **Two more refusals name their option, since 5.245** (TKT-1203). `release.record`
 with no `--gate` (`Gate name is required`) and `job.add` with no `--schedule` (`A
 schedule is required - a cron expression, or 'monitor'`) now end `- supply it

@@ -5042,6 +5042,10 @@ fence, but the diagnostic is only honest once it catches both shapes.
 
 **`job.start` with no `--id` is refused by naming the option, since 5.244** (TKT-1202). The branch built its "not on this board" message from `$args->{id}` before checking the id was set, so the missing id printed a Perl `Use of uninitialized value in concatenation` warning (from `lib/Tira/CLI/Job.pm`) and refused with `No job  on this board`, a job with no name and two spaces where it should have one, while `job.stop` refused the same mistake cleanly as `A job id is required`. `job.start` now refuses an empty id first, in those words, before the lookup; `A job id is required` was added to `%SUPPLIED_BY` in `lib/Tira/CLI/Usage.pm`, so both commands read `A job id is required - supply it with --id`. An id that is given but not on the board is answered exactly as before with the engine's `No job 'ID'`, and a start with a real id is untouched. Found by running every documented command with only `--author` inside a developer-dashboard container. `t/1202` holds it.
 
+## Two more refusals that name their option
+
+**`release.record` with no gate and `job.add` with no schedule name the option, since 5.245** (TKT-1203). They said `Gate name is required` and `A schedule is required - a cron expression, or 'monitor'` - correct refusals that wrote nothing and printed no warning, but with no word about `--gate` or `--schedule`, which their usage lines require. Both messages were absent from `%SUPPLIED_BY` in `lib/Tira/CLI/Usage.pm`; they are entries now, so each reads `... - supply it with --gate` and `... - supply it with --schedule`. Found by the sweep that found TKT-1202, running every documented command with only `--author` in a developer-dashboard container. `t/1203` holds it.
+
 ## The meta-guards
 
 TKT-865 (extended by TKT-877, TKT-903, then TKT-736). Twenty-two files in

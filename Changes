@@ -1,5 +1,17 @@
 Revision history for Tira
 
+5.245  2026-09-30
+    - TKT-1203: two more refusals of a missing required option named a thing
+      rather than the option that supplies it. `d2 tira.release.record` with no
+      `--gate` said `Gate name is required`, and `d2 tira.job.add` with no
+      `--schedule` said `A schedule is required - a cron expression, or
+      'monitor'`. Both were correct, printed no warning and wrote nothing; they
+      were simply absent from the `%SUPPLIED_BY` table in lib/Tira/CLI/Usage.pm,
+      so they now end `- supply it with --gate` and `- supply it with
+      --schedule`. Found by the same sweep as TKT-1202: every documented command
+      run with only `--author` inside a developer-dashboard container. New t/1203
+      holds it.
+
 5.244  2026-09-30
     - TKT-1202: `d2 tira.job.start` with no `--id` printed a Perl warning, `Use
       of uninitialized value in concatenation (.) or string`, from

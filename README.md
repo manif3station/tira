@@ -1264,6 +1264,15 @@ uses, `A job id is required - supply it with --id`, with no warning and nothing
 started. An id that is not on the board is answered as before, and a start with
 a real id is unchanged.
 
+### Two more refusals that name their option
+
+`d2 tira.release.record` with no `--gate` and `d2 tira.job.add` with no
+`--schedule` used to refuse as `Gate name is required` and `A schedule is
+required - a cron expression, or 'monitor'`, naming a thing and not the option
+(TKT-1203, 5.245). They now end `- supply it with --gate` and `- supply it with
+--schedule`. Nothing else changes: the exit status, no warning and nothing
+written.
+
 ## License
 
 Tira is released under the MIT License. See [LICENSE](LICENSE).

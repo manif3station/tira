@@ -2687,6 +2687,13 @@ The command that raised the message is checked against a small override
 table before the single-answer default; every message with one true answer
 is untouched.
 
+**Two more refusals name their option, since 5.245** (TKT-1203). `release.record`
+with no `--gate` (`Gate name is required`) and `job.add` with no `--schedule` (`A
+schedule is required - a cron expression, or 'monitor'`) now end `- supply it
+with --gate` and `- supply it with --schedule`, from the same table as the
+refusals above. The exit status, the absence of a warning and the unchanged
+board are as before.
+
 **`job.start` with no id says so, since 5.244** (TKT-1202). It printed a Perl
 uninitialized-value warning and refused with `No job  on this board`, naming a
 job with no name, where `job.stop` said `A job id is required`. It now refuses an

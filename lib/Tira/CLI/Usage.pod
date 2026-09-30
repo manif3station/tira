@@ -152,4 +152,8 @@ falls back to C<[options]> now fails the guard directly. TKT-630.
 
 L<Tira::CLI>
 
+=head2 Three more messages, same table
+
+C<A job id is required> (C<job.start>, C<job.stop>), C<Gate name is required> (C<release.record>) and C<A schedule is required> (C<job.add>) translate to C<--id>, C<--gate> and C<--schedule>. TKT-1202, TKT-1203.
+
 =cut

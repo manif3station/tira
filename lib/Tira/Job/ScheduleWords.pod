@@ -1,0 +1,19 @@
+=head1 NAME
+
+Tira::Job::ScheduleWords - the wording-formatting half of cron schedule
+phrasing, lifted out of Tira::Job::Schedule
+
+=head1 DESCRIPTION
+
+C<_ordinal>, C<_weekday_phrase>, C<_monthday_phrase>, C<_about>,
+C<_even_step>, C<_and_list>, and the C<@DAY>/C<@MONTH>/C<%DAY_NAME>/
+C<%MONTH_NAME> word tables - the self-contained formatting cluster
+C<job_schedule_words> (still in C<Tira::Job::Schedule>, since it needs that
+module's own cron-parsing internals) calls by fully-qualified name. TKT-1151,
+the same mechanical-lift shape TKT-1044 itself used.
+
+=head1 SEE ALSO
+
+L<Tira::Job::Schedule>
+
+=cut

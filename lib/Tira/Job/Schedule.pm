@@ -385,36 +385,3 @@ sub _cron_minute_matches {
 }
 
 1;
-
-__END__
-
-=head1 NAME
-
-Tira::Job::Schedule - cron schedule parsing, validation and wording
-
-=head1 DESCRIPTION
-
-Five schedule functions lifted out of C<Tira::Job>: C<_cron_field_values>
-and C<_cron_parse> (parse and validate a crontab expression, dying with
-the field and range that was wrong), C<schedule_refusal> (the same
-validator, as a string a caller can show without catching an exception),
-C<job_schedule_words> (a schedule as a phrase - "Every 30 minutes" - whose
-own wording-formatting helper cluster, C<_ordinal>, C<_weekday_phrase>,
-C<_monthday_phrase>, C<_about>, C<_even_step>, C<_and_list>, and the
-C<@DAY>/C<@MONTH>/C<%DAY_NAME>/C<%MONTH_NAME> word tables, moved to
-L<Tira::Job::ScheduleWords> in TKT-1151, reached by fully-qualified name
-from here), and C<_cron_minute_matches> (whether one minute matches a
-parsed schedule, the inner test C<job_is_due>'s gap scan calls once per
-candidate minute).
-
-Reached through a forward of the same name in C<Tira::Job>, required at
-the point of use. Not renamed, so every existing caller -
-C<Tira::CLI::Browser::Jobs> and C<Tira::CLI::Job>, which already reach
-C<schedule_refusal> and C<job_schedule_words> by their fully-qualified
-C<Tira::Job::> name - needed no change at all.
-
-=head1 SEE ALSO
-
-L<Tira::Job>, L<Tira::Job::ScheduleWords>
-
-=cut

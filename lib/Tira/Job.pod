@@ -1,0 +1,405 @@
+=head1 NAME
+
+Tira::Job - repeated jobs, a schedule the board owns
+
+=head1 DESCRIPTION
+
+A repeated job carries a schedule - a crontab expression or the literal
+C<monitor> - and either a command to run or a message to announce, and the
+police acts on it when it comes due. EPC-014.
+
+It exists because a schedule that lived in a session died with it: three
+standing hunts stopped and went unnoticed for hours, since a loop that has
+stopped and a loop with nothing to report look identical from outside. A
+schedule on the board is visible, durable and policeable.
+
+=head1 THE REFUSAL IS THE POINT
+
+A malformed schedule is rejected by C<job_add> and C<job_update> when it is
+written, naming the field that was wrong and the range it takes, and nothing
+is stored. This is deliberate rather than defensive: a job whose cron is
+nonsense would never fire, and a job that never fires is indistinguishable
+from a job with nothing to say - which is precisely the ambiguity this
+feature was built to remove. Storing it would rebuild that ambiguity one
+layer down.
+
+=head1 A JOB IS ONE MODE OR THE OTHER
+
+Either a command, whose output the police sends to the bridge, or a message
+it announces directly. Never both - a record carrying both cannot say which
+the bridge should get - and never neither. C<mode> records which, so a reader
+never has to infer it from which field happens to be populated.
+
+=head1 ONE EDITOR FIELD SERVES BOTH MODES, AND IT IS PROSE AS OFTEN AS NOT
+
+The dashboard's job editor has a single Command control filled from whichever
+of C<command> or C<message> the job actually carries. That matters to this
+module because the two fields are not alike in shape: a command is one line by
+design, while a message is the instruction an agent acts on and legitimately
+runs to paragraphs. Since 5.85 the control is a textarea that grows to its
+content rather than a single-line input, because every message job on this
+board carries multi-sentence text and the old control showed the first few
+words of it. TKT-951.
+
+B<A message keeps its newlines and the bridge does not.> C<job_add> and
+C<job_list> round-trip a multi-line message byte-identically - proven, not
+assumed - but C<Tira::_bridge_line> renders a violation as one line and
+interpolates the detail verbatim, so a message containing newlines reaches the
+bridge as several physical lines and a blank line arrives as an empty entry.
+That is older than the editor change and reachable from C<tira.job.add> today;
+it is filed as TKT-981 against the bridge rather than against this module,
+because the record is right and only the rendering is wrong. If you are adding
+something that puts job text on the bridge, know that the flattening is not
+there yet.
+
+=head1 A MONITOR IS KNOWN TO BE ALIVE BY A PID AND WHEN IT STARTED
+
+C<job_started> records the pid a monitor was started as, and
+C<job_monitor_alive> decides whether it is still running by finding that pid
+in the process table B<and> matching the command it is running.
+
+The START TIMES are what decide it when both are known, and the command is
+consulted only when one is missing. That order is the fix for TKT-860: comparing
+commands first reported every C<d2>-wrapped monitor as B<dead>, because C<d2>
+execs perl with the resolved path and the stored string never appears in the
+child's argv. Nearly every command on this board begins with C<d2>, so the rule
+written to end a silence cried on every pass instead - and the false-dead
+reading also defeated the already-running refusal, so C<job.start> would launch
+a second copy and orphan the first.
+
+Both halves are still load-bearing. Asking C<kill 0, $pid> is this
+distribution's own precedent - C<police_claim_singleton> has done exactly that
+since it was written - and for a singleton claimed seconds ago it is correct. It is not
+correct for a monitor whose pid may have been recorded days ago, because pids
+are reused, and a reused pid answers C<kill 0> in the affirmative. A liveness
+check built on that alone would report a dead monitor as B<alive>, which is
+the same silence the C<monitor-dead> rule exists to end, rebuilt inside the
+fix for it.
+
+The process table arrives as B<data>. This module never reads it: the engine
+is forbidden C<qx>, C<system>, C<exec> and piped C<open> - the guard excludes
+only C<lib/Tira/CLI> - and reading the table needs C<ps> or C<tasklist>. So
+C<Tira::CLI::Police::_running_processes> gathers the facts and this decides
+from them, which is also what lets the tests cover every case without a real
+process.
+
+What this deliberately does not detect is a monitor that is alive but
+B<wedged> - the process is up and whatever it was polling has stopped. That
+would need the monitor to report progress rather than merely exist, which
+needs the monitored thing to cooperate; every monitor this feature was built
+to absorb is an existing command that will never write a heartbeat. A check
+believed to cover more than it does is worse than one that says where it
+stops.
+
+B<That paragraph was written before the monitors cooperated, and half of it is
+now out of date.> TKT-851's feeder means every started monitor reports progress
+by the act of speaking, and C<job_feed> stamps C<last_output_at> as it does. So
+the missing ingredient exists. What is still true is that C<job_monitor_alive>
+does not use it: this sub answers "is the process there", and nothing more.
+
+Deciding a wedged monitor needs a second fact - how often this monitor ought to
+speak - which the record could not supply, since a monitor's C<schedule> is the
+literal string C<monitor>. TKT-863 asked the owner where that should come from
+and he chose per-job declaration over a board-wide constant: C<expect_every>, a
+whole number of minutes, and B<undeclared means no expectation> rather than a
+default. The dashboard heartbeat reads it. A police rule that announces the
+silence on the bridge is TKT-873, absorbed into TKT-893, and it will read the
+same field rather than inventing a second notion of late.
+
+=head1 WHAT THE BOARD SAYS ABOUT A PROCESS IT DID NOT START
+
+TKT-893, grouping nine findings that turned out to be one: the board records a
+monitor's pid and command when it starts, and until this card nothing kept that
+record true afterwards.
+
+Each verb answered differently and none of them said so. C<job_update> changed
+the command while the pid went on running the old one. C<job_delete> removed the
+record and left the process, taking with it the only thing C<monitor-dead> could
+have reported the orphan by. Setting C<enabled> to 0 cleared nothing, and since
+C<monitor-dead> is deliberately silent about a disabled monitor, that was the one
+change making a live process invisible in both directions at once.
+
+B<The rule is that the board never silently claims something false.> So the three
+refuse while a monitor is running, through one shared C<_refuse_while_running> -
+named once, because three callers asking the same question three ways is exactly
+how they came to give three answers. Only what would make the record untrue is
+refused: a running monitor's schedule may change while it stays a monitor, and
+is refused when it would turn it into a cron job - which would keep the pid on a
+record C<monitor-dead> no longer watches.
+
+B<C<job_stop> succeeds whether or not the process is there, and signals nothing.>
+That is the engine's own constraint deciding the shape rather than a preference:
+this module is forbidden C<qx>, C<system>, C<exec> and piped C<open>, which is
+why liveness is decided from a table L<Tira::CLI::Police> gathers and hands over.
+So all it can know is that a pid was RECORDED. A pid whose process has already
+died is precisely what somebody needs to clear, and refusing would leave the
+record wrong for ever - the trap of a gate satisfiable only by giving up. The pid
+comes back as C<stopped_pid> so the CLI, which is allowed to, can signal it.
+
+B<And the record is cleared BEFORE the signal.> A signal that fails - the process
+already gone, or owned by somebody else - must not leave the board still pointing
+at a pid nobody is responsible for, which is the whole fault being closed.
+
+B<That ordering is right and it hid a worse fault for a release.> Because the
+record is cleared either way, a stop that signalled the whole monitor and a stop
+that orphaned three quarters of it left the board in identical states - and until
+5.45 the CLI signalled C<stopped_pid> alone, which is the shell owning the
+pipeline, while the command and the feeder carried on. The board then held no pid
+for a running monitor, C<job_monitor_alive> answered honestly that nothing was
+running, and the duplicate-start refusal in C<job.start> let a second monitor
+begin beside the first. Nothing here was wrong; what was missing was that the
+signal reached one process of several. The CLI now signals the process group the
+monitor was started in and reports which - C<group>, C<process> or C<gone> - so
+the two outcomes are distinguishable at last. TKT-920.
+
+=head1 KEEPING A COMMAND RUNNING
+
+C<restart_every> is how a monitor says it should be started again when its
+command ends. TKT-891, from his own JOB-006: a C<while> loop typed into a command
+field to keep police alive, which never ran once.
+
+B<A field rather than shell, because the board can see a field.> A command
+containing a loop is one opaque string - nothing can report the interval, tell a
+supervised job from a plain one, or count restarts.
+
+The loop itself is in L<Tira::CLI::Job>'s fixed pipeline script, wrapping the
+positional parameters. Nothing of the job's becomes shell source, which is
+TKT-851's guarantee and is untouched: what is looped is the same C<"$@"> that was
+exec'd before. Refused on a cron job, which fires on a tick rather than staying
+up, and on a message job, because a loop can only wrap a command.
+
+B<And since 5.52 the jobs editor asks the same two questions before it offers the
+control.> It had asked only one: the row carrying the interval was shown for
+anything in command mode, so a cron job displayed a checkbox and a seconds field
+and the save answered with the refusal above. The page is not the authority for
+that - this sub is - but a form that offers what the save rejects teaches
+somebody the rule by failing at them. TKT-911.
+
+B<And hiding a control is not enough on its own, because C<job_update> merges.>
+It validates the job as it I<would> be, so a field the payload does not mention
+keeps the record's own value - which is what stops an edit naming only the
+command from dropping a monitor's declared expectation. A form that hides a row
+and therefore stops sending the field hands this sub the stored value against the
+new kind, and gets the refusal above for something nobody can see. The editor
+sends an explicit null for a hidden row for that reason.
+
+=head1 A COMMAND IS A PROGRAM AND ITS ARGUMENTS
+
+C<job_command_words> turns a job's stored command into the list a process is
+started with. Quotes GROUP; everything else is literal.
+
+TKT-898. It was C<split ' '> at three sites, so C<--text "two words"> reached the
+program as three arguments with the quote marks attached, and the job exited 0
+having done the wrong thing. The confusion was between the two things a shell
+does: it groups arguments and it interprets metacharacters. TKT-851 removed the
+shell to stop the second and took the first with it.
+
+B<Written out rather than using Text::ParseWords>, and Windows is the reason:
+C<shellwords> treats a backslash as an escape, so
+C<C:\strawberry\perl\bin\perl.exe> comes back with every separator eaten. That
+was caught by the test asserting a full path and a C<.exe> on either side still
+name the same program.
+
+B<A quote only groups when it starts a word.> Anywhere else it is an ordinary
+character, which is what keeps C<can't> one word and C<C:\O'Reilly\tool.exe> one
+path. An adversarial review found the first version making every quote syntactic,
+so an apostrophe in ordinary text died as an unbalanced quote - a regression
+against this card's own promise that an unquoted command is unchanged. The cost
+is that C<x"y z"w> does not group the way a shell would, which is the safe
+direction: it splits exactly where it did before.
+
+B<An unbalanced quote is refused>, naming the quote and showing the command back,
+rather than falling back to the old split - which would run something the author
+did not write, silently. It is refused here rather than by returning an empty
+list, because empty already means "the job has no command to run" at both call
+sites, and a job whose command has a typo in it is not a job with no command.
+
+Two callers must not die of that refusal and do not: the police pass reports it
+as a failed run carrying these words, since the bridge is the single reporting
+path and one malformed command must not silence a whole pass; and the Windows
+liveness comparator treats unreadable as unmatched, because it is asked whether a
+process is the one we started and a typo is not a reason to stop answering.
+
+=head1 DUE TOLERATES A GAP BETWEEN CHECKS
+
+C<job_is_due> compared only the current minute against a job's schedule until
+5.73, so a caller invoked irregularly - an agent's own commands, the only
+thing that ever called it on this board - missed almost every due window.
+Measured live: JOB-001 through JOB-004 all carried C<last_run: null> after
+two to three days on the board, firing only in the rare minute an unrelated
+command happened to land on the job's exact due minute.
+
+Michael's decision (Q-124, TKT-935): change C<job_is_due> to tolerate the
+gap, rather than run a standing supervised C<d2 tira.police> monitor. It now
+takes an optional third argument, the instant it was last checked, and
+treats every minute since as due if any of them match - so an irregular
+caller catches a missed window on its next check rather than stepping over
+it. Capped at one week, past which a job is treated as a fresh,
+exact-minute-only check: the same "not applied backwards" reasoning
+C<unproven()> already gives cards that shipped before it existed, so a
+long-neglected job does not flood the bridge with everything it silently
+missed the moment it is first read under the new code.
+
+The C<job-due> police rule (C<lib/Tira.pm>) keeps each job's last-checked
+instant in the same store-backed ledger C<agent-still>'s own notified-stamp
+already uses - not on the job record itself, for the same reason no other
+stateful rule here writes the record it is judging.
+
+=head1 A DUE COMMAND IS ACTUALLY RUN
+
+TKT-944. C<job-due> announces; it does not execute, and two tests hold the
+engine to that. What was missing was anything on the other side of the line:
+C<Tira::CLI::Police::run_due_job> existed and its only caller was the manual
+C<d2 tira.job.run>, so a command-mode job was announced as C<runs: ...> every
+time its window came round and never ran. The pass now hands back the due
+command-mode jobs and C<Tira::CLI::Police::run_due_commands> executes them in
+the CLI layer, feeding what they printed back through C<job_feed> - so a cron
+run leaves the same trace a monitor's output does, and C<last_output_at> is
+stamped for it too.
+
+=head1 A CRON JOB SAYS WHEN IT LAST FIRED
+
+TKT-942. C<last_run> was a field nothing wrote. One line assigned it -
+C<< last_run => undef >> as a job was created - and no code anywhere in
+C<lib/> or C<cli/> ever wrote it again, so every job on every board read
+C<null> for good. The owner asked three times in one afternoon whether his
+jobs were broken; they had been firing on schedule the whole time, and
+nothing on the board said so.
+
+The heartbeat he could see on two of his jobs belongs to C<last_output_at>,
+which the feeder stamps when a MONITOR calls in - described in the section
+below. A cron job never calls in, so it never had one, and neither mode of
+cron job had anything else to show either.
+
+What it has now is C<last_due_at>. The C<job-due> rule records each
+genuinely-due window in the same store-backed ledger it already keeps
+C<job_checked> in, and C<job_list> joins it onto each job at read time when
+the caller passes a C<store>. The two ledger entries answer different
+questions and are deliberately kept apart: C<job_checked> advances for every
+job a pass looked at, due or not, so that C<job_is_due> knows where to
+resume; C<job_due_at> moves only when the job was actually due.
+
+B<Computed, never persisted.> The instant does not go onto the job record,
+for the reason the section above already gives - no stateful rule here writes
+the record it is judging - and C<t/563> holds that line by comparing the jobs
+file byte for byte across a pass that announced a due job. A job asked for
+without a store is not given a stale answer; the field is simply absent.
+
+Every job read with a store carries the key, including one that has never
+been due, which carries C<undef>. That is the point rather than an oversight:
+"never fired" and "fired, but nobody recorded it" were indistinguishable
+before this, both simply absent, and telling them apart is what was actually
+being asked for. The dashboard renders the difference as "Never fired"
+against "Last fired 20 minutes ago".
+
+C<last_run> is retired rather than made true. Populating it would leave two
+fields meaning nearly the same thing, which is the drift this file keeps
+warning about; records written before 5.80 keep a stale key that nothing
+reads and no view ever rendered.
+
+B<That reasoning expired in 5.84, and the field it argued against is back
+under a name that says what it means.> TKT-963, his report: C<tira.job.run>
+answered C<ran=1 status=0> and left the record untouched, so a job he had just
+run by hand went on reading "Never fired" - the beat line is painted from
+C<last_due_at>, and a manual run never comes due. The paragraph above was
+written when B<nothing ran commands>, so "was due" and "ran" were one event
+and two fields for them would indeed have meant nearly the same thing. Since
+TKT-944 they are two events, and TKT-950's could-not-start job is a third:
+due, and nothing executed.
+
+So a job now reports three facts rather than two. C<last_due_at>, the window
+came round - computed, never persisted, for the reason above. C<last_run_at>,
+the command was run - stamped by C<job_ran>. C<last_output_at>, it said
+something - stamped by C<job_feed>. They come apart in exactly the cases that
+were previously unreadable: a manual run has the second and not the first; a
+command exiting 0 in silence has the second and not the third, which is what
+made a silent success and a mere due-window the same reading on both paths.
+
+C<last_run_at> follows this codebase's own meaning of "ran" rather than
+inventing a second one. C<run_due_job> answers C<< ran => 1 >> for a program
+that is not there - "a program that is not there is a RESULT, not a crash" -
+and C<< ran => 0 >> for a job that runs no command at all, so a missing
+program records a run with the failure in its output lines, and a
+message-mode job records none however often it comes due. Both callers stamp
+through one recorder, C<Tira::CLI::Police::record_run>: the schedule and the
+button must not keep separate answers to the same question, which is the
+fault this project has already paid for twice.
+
+=head1 A MONITOR CALLS IN - ITS LEAVINGS ARE NOT READ
+
+TKT-851, from his instruction that monitors should not have separate logs and
+his answer to Q-112 on 2026-09-03: "each output will be registered who talked to
+the police".
+
+A monitor never finishes, so its output cannot be handed over in one piece the
+way a command-mode job's can. The first implementation gave it a per-job file
+and had police follow that from a stored offset. It worked, and it was wrong
+twice over: it kept the log he had said should not exist, and it made "this
+monitor is alive and working" an inference from a file's contents rather than a
+fact the monitor reported. A spool nobody has written to and a monitor that has
+died look identical from outside.
+
+So the monitor is started inside a pipeline and its output goes B<through>
+C<skills/job/cli/feed>, which calls C<job_feed> to record what it said against
+the job that said it, with C<last_output_at> as the moment it called in. That
+timestamp is the fact a silence rule can be built on, and no file can provide
+it.
+
+A pipe is safe here for the one reason a pipe was rejected before: the feeder is
+its reader and drains continuously, inside the same pipeline, so it cannot be
+forgotten. An unread pipe fills at about 64KB and blocks the child forever.
+
+Three things about the pair are easy to get wrong and are asserted in F<t/503>:
+
+=over 4
+
+=item * B<The buffer is bounded and says what it dropped.> The feeder writes
+continuously and police may not read for thirty seconds, so the record needs its
+own limit. What it could not keep is counted, because this epic exists precisely
+because silence and nothing-to-say looked identical.
+
+=item * B<The newest lines are the ones kept.> When a chatty poller overruns the
+buffer, the oldest go - what a monitor is for is telling you what is true now.
+
+=item * B<Draining nothing does not move the last-called-in time.> A monitor
+that has not spoken must not look like one that has, or the silence rule is
+built on a timestamp that police refreshes for it.
+
+=back
+
+C<job_output_drain> is called from L<Tira::CLI::Police> after the bridge write,
+never from the pass: F<t/86> requires a police pass to change not one byte of
+the board. It takes the count that was announced rather than whatever is in the
+buffer when it runs, because the monitor may have called in during the gap and
+taking those lines would discard output nobody ever saw.
+
+=head2 The queue and the tail are different things
+
+C<output> is a B<handover>. The feeder fills it, the police pass takes what it
+announced, and it is meant to be emptied - that is what stops the bridge saying
+the same thing twice. A caller reading it to find out what a monitor has been
+saying finds nothing a second after it spoke.
+
+So since 5.48 the record also carries C<recent>: a bounded tail of the monitor's
+own words that the drain never touches. It exists for the dashboard, whose job
+cards could not show a line of a monitor's output before it - the panel there was
+filled only from the answer to a B<Run now> click, and a monitor's button is
+B<Start>. TKT-922.
+
+It holds one feeder delivery's worth, and that number is B<mirrored> from
+C<$Tira::CLI::Job::BATCH_LINES> rather than referenced: this module does not
+depend on the CLI, which is the same boundary that keeps it away from the process
+table. F<t/532> asserts the two stay equal, which buys back what a shared
+reference would have guaranteed without taking on the dependency.
+
+Newest kept, oldest dropped, for the reason the queue does the same: a card shows
+what is true now, and a tail that discarded the newest would show a monitor's
+first minutes for ever.
+
+=head1 CALL IT THROUGH TIRA
+
+C<Tira> is the public entry point and keeps a forwarder for each verb here,
+requiring this module at the call site. Every sub takes C<$self> - a blessed
+C<Tira> - as its first argument.
+
+=cut

@@ -1,0 +1,37 @@
+=head1 NAME
+
+Tira::Attachment - storing files and hanging them off records
+
+=head1 DESCRIPTION
+
+The attachment concern, lifted out of L<Tira> by TKT-746: store a file, know
+what it is, attach it to a record, and list, fetch, detach or discard it.
+
+Since 5.89, C<attachment_where> (TKT-766) answers which OTHER records
+reference a given sha - C<attachment_list> only ever resolves through one
+record via C<--ref>, so nothing before it could ask that question at all.
+It walks C<record_list> (every column, discard included - that flag was
+never real, and TKT-970 removed the argument that used to suggest it was)
+and reuses C<_record_attachments> on each, the same helper C<attachment_list>
+already calls for its own one-record case.
+
+Every sub takes C<$self> - a blessed L<Tira> - and reaches the engine's shared
+helpers through it. L<Tira> keeps a forwarder for each public verb, requiring
+this module at the call site, so a command that never touches an attachment
+never compiles it.
+
+=head1 THREE PRIVATE HELPERS KEEP A NAME IN THE ENGINE
+
+C<_store_attachment_file> and C<_attachment_path> are called by
+C<question_attach>, C<question_voice> and C<_backfill_added_at> - questions
+attach files through this store.
+
+C<_attachment_content_type> is called by L<Tira::CLI> and by F<t/423> as
+C<Tira::_attachment_content_type>, fully qualified across a file boundary.
+Nothing inside F<lib/Tira.pm> calls it at all, which is why two caller searches
+in a row said it could move outright: a leading underscore marks a name private
+to a PACKAGE, not to a file.
+
+All three live here; L<Tira> forwards to them.
+
+=cut

@@ -28,6 +28,7 @@
 use strict;
 use warnings;
 
+use File::Find ();
 use Test::More;
 
 use lib 't/lib';
@@ -45,7 +46,17 @@ my $file = Suite::cli_source();
 # than silently when the front-end moved out of lib/Tira.pm.
 ok( $file, 'the command surface was read - ' . length($file) . ' bytes' );
 
-my ($pod) = $file =~ /^(=head1 NAME.*)\z/ms;
+# TKT-1197: the POD of every command-surface module lives in its sibling .pod.
+my $pod = '';
+File::Find::find(
+    { no_chdir => 1, wanted => sub {
+          return if $File::Find::name !~ m{\blib/Tira/CLI(?:\.pod|/.*\.pod)\z};
+          open my $pfh, '<', $File::Find::name or die "Cannot read $File::Find::name: $!";
+          $pod .= do { local $/; <$pfh> };
+          close $pfh;
+      } },
+    'lib' );
+$pod = undef if $pod !~ /^=head1 NAME/m;
 ok( $pod, 'and its POD was found - ' . length( $pod // '' ) . ' bytes' );
 
 # --- what actually runs on the move path -------------------------------------

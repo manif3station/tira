@@ -1,0 +1,46 @@
+=head1 NAME
+
+Tira::CLI::Job::Feeder - the single process a monitor is
+
+=head1 DESCRIPTION
+
+C<tira.job.feeder> runs a monitor's command, reads what it says and feeds the
+board. One process where there were three, and the ps line says which board's
+job it is - the fact that was missing, and not a cosmetic one, since job ids are
+per-board and one machine runs this skill for several projects.
+
+=head1 FUNCTIONS
+
+=head2 monitor_process_title
+
+The line C<ps> shows, assigned to C<$0>: the verb, the job, the board's B<name>
+in brackets, and the command. Never the board's path - that travels in
+C<TIRA_HOME> exactly so it stays out of the process table.
+
+=head2 feed_from_handle
+
+Reads lines from a handle and hands them to C<job_feed> in batches, flushing
+whatever is held after a bounded quiet. Shared by C<tira.job.feed>, which reads
+standard input, and by the feeder, which reads its own pipe - one
+implementation, because the bounded wait is what lets a monitor speaking once an
+hour be heard within seconds and two copies of that would drift.
+
+=head2 run_feeder
+
+Looks the job up, refuses an id that names nothing and a cron job, splits the
+command with L<Tira::Job>'s C<job_command_words>, sets the process title, puts
+itself in a process group of its own, and then runs the command with its output
+on a pipe this process reads. With an interval it starts the command again after
+it ends.
+
+It does no C<fork> of its own: C<IPC::Open3> does that, which keeps a branch
+that C<exec>s - and therefore can never report coverage - out of this file.
+
+Traps C<TERM> since TKT-1014: C<job.stop> signals this process's whole
+group at once, reaching the command it is running at the same instant
+rather than afterward, and the default C<TERM> disposition used to kill
+this process before it ever reached its own C<waitpid> - leaving the
+command an unreaped zombie. The handler reaps whichever command is
+currently running, then exits.
+
+=cut

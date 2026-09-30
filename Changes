@@ -1,5 +1,24 @@
 Revision history for Tira
 
+5.241  2026-09-30
+    - TKT-1197: twenty-one modules still carried their POD inline, after the
+      last line of code, while eight others (lib/Tira.pm and the CLI split
+      files) already kept it in a sibling .pod. Every module now follows the
+      same-basename convention: lib/Tira/Job.pm's documentation is
+      lib/Tira/Job.pod, and the .pm ends at its last line of code. perldoc
+      finds the .pod exactly as it found the inline block. The moved modules
+      are Attachment, CLI, CLI/Board, CLI/Browser, CLI/Browser/Jobs,
+      CLI/Command, CLI/Job, CLI/Job/Feeder, CLI/Job/Monitor, CLI/Move,
+      CLI/Police/Jobs, CLI/Records, CLI/Wizard, DashboardWeb, Job,
+      Job/Schedule, Job/ScheduleWords, Notification, OnboardWeb, Tasklist and
+      Toon; 1,892 lines left the .pm files and none was added, so the code is
+      byte-for-byte what it was. New t/1197 walks lib/ and fails naming any
+      module that holds an inline POD directive or has no sibling .pod;
+      t/03-metadata.t lists the twenty-one as intentionally POD-free and
+      podcheckers each .pod. Three older tests read the moved POD out of the
+      .pm and were pointed at the .pod (t/402, t/428) or given the new line
+      count (t/1098: Schedule.pm 420 -> 387, CLI.pm 2,800 -> 2,404).
+
 5.240  2026-09-29
     - TKT-1194: an unknown option that is another tool's word for a real flag was
       answered with whatever declared options happened to be a few letters away.
@@ -637,7 +656,7 @@ Revision history for Tira
       mechanical-lift shape TKT-1044 itself used. job_schedule_words
       itself stays in Schedule.pm (needs _cron_field_values/@CRON_FIELDS)
       and calls the moved helpers by fully-qualified name. No behaviour
-      change - lib/Tira/Job/Schedule.pm is now 420 lines. t/524's own
+      change - lib/Tira/Job/Schedule.pm is now 387 lines (420 before TKT-1197 moved its POD out). t/524's own
       now-stale exemption entry for Schedule.pm (from the original
       overage) was also removed.
 

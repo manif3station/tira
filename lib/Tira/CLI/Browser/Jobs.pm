@@ -355,22 +355,5 @@ sub job_providers {
     );
 }
 
-=head1 NAME
-
-Tira::CLI::Browser::Jobs - the browser's job-management routes
-
-=head1 DESCRIPTION
-
-Seven routes lifted out of C<Tira::CLI::Browser>'s own C<providers()> -
-listing repeated jobs with their live monitor status, running one now,
-saving/creating from the editor, deleting, and the play/stop/schedule-check
-actions - all closing over the same C<$tira>/C<$project>/C<$json> that
-C<providers()> already builds once.
-
-=head1 SEE ALSO
-
-L<Tira::CLI::Browser>
-
-=cut
 
 1;

@@ -818,7 +818,7 @@ none of it. Since 5.89 those assets are formatted rather than left as the
 single minified line each kept from the move - a change to any one of them
 now reads as an ordinary diff. Since 4.74 the CLI is split the same way for the same
 reason: `lib/Tira/CLI.pm` was 6,048 lines with every command body in it, and is
-2,800 lines now, with the bodies in `lib/Tira/CLI/` - `Browser`, `Police`, `Serve`,
+2,404 lines now, with the bodies in `lib/Tira/CLI/` - `Browser`, `Police`, `Serve`,
 `Records`, `Board`, `Wizard`, `Usage`, `Backup`. Each is loaded only when one of
 its commands runs, so an ordinary card command compiles none of them.
 Since 5.23 the engine is being split the same way and for the same reason:
@@ -1218,6 +1218,19 @@ directory, and the shared git directory a linked worktree would have given it.
 Pointing a reviewer at the checkout directly once reverted two files of
 uncommitted documentation with a `git checkout --`, and the loss was silent:
 afterwards `git status` showed the files unmodified. TKT-626.
+
+### Where each module's documentation lives
+
+Every module under `lib/` keeps its POD in a sibling file with the same
+basename - `lib/Tira/Job.pm`'s documentation is `lib/Tira/Job.pod` - and the
+`.pm` ends at its last line of code (TKT-1197, 5.241). `perldoc Tira::Job`
+finds the `.pod` exactly as it used to find the inline block, so reading the
+documentation is unchanged. Twenty-one modules moved in that release, about
+1,900 lines of POD, with no line of code touched. `t/1197` walks `lib/` and
+fails naming any module that carries an inline POD directive or has no sibling
+`.pod`, so the next module added cannot quietly go back to the old shape, and
+`t/03-metadata.t` runs `podchecker` over every `.pod`. Writing a new module,
+put the POD in its `.pod` from the first commit.
 
 ## License
 

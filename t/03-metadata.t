@@ -176,7 +176,8 @@ is( scalar @found_lib_pm, $lib_pm_count,
 # other file (including lib/Tira.pod itself) must still return. TKT-1103 did
 # the same for lib/Tira/CLI/Police.pm and lib/Tira/CLI/Serve.pm, TKT-1004 for
 # lib/Tira/CLI/Usage.pm, and TKT-850 for lib/Tira/CLI/Backup.pm and
-# lib/Tira/CLI/Police/World.pm.
+# lib/Tira/CLI/Police/World.pm. TKT-1197 did the rest: every module now keeps
+# its POD in a sibling .pod, and t/1197 walks lib/ so the next one cannot slip.
 my %intentionally_pod_free = (
     'lib/Tira.pm'                    => 1,
     'lib/Tira/CLI/Police.pm'         => 1,
@@ -186,6 +187,27 @@ my %intentionally_pod_free = (
     'lib/Tira/CLI/Backup.pm'         => 1,
     'lib/Tira/CLI/Police/World.pm'   => 1,
     'lib/Tira/CLI/Options.pm'        => 1,
+    'lib/Tira/Attachment.pm'         => 1,
+    'lib/Tira/CLI.pm'                => 1,
+    'lib/Tira/CLI/Board.pm'          => 1,
+    'lib/Tira/CLI/Browser.pm'        => 1,
+    'lib/Tira/CLI/Browser/Jobs.pm'   => 1,
+    'lib/Tira/CLI/Command.pm'        => 1,
+    'lib/Tira/CLI/Job.pm'            => 1,
+    'lib/Tira/CLI/Job/Feeder.pm'     => 1,
+    'lib/Tira/CLI/Job/Monitor.pm'    => 1,
+    'lib/Tira/CLI/Move.pm'           => 1,
+    'lib/Tira/CLI/Police/Jobs.pm'    => 1,
+    'lib/Tira/CLI/Records.pm'        => 1,
+    'lib/Tira/CLI/Wizard.pm'         => 1,
+    'lib/Tira/DashboardWeb.pm'       => 1,
+    'lib/Tira/Job.pm'                => 1,
+    'lib/Tira/Job/Schedule.pm'       => 1,
+    'lib/Tira/Job/ScheduleWords.pm'  => 1,
+    'lib/Tira/Notification.pm'       => 1,
+    'lib/Tira/OnboardWeb.pm'         => 1,
+    'lib/Tira/Tasklist.pm'           => 1,
+    'lib/Tira/Toon.pm'               => 1,
 );
 for my $file (@perl_files) {
     if ( $intentionally_pod_free{$file} ) {

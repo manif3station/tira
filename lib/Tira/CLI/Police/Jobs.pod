@@ -1,0 +1,30 @@
+=head1 NAME
+
+Tira::CLI::Police::Jobs - due-job execution for the police pass
+
+=head1 DESCRIPTION
+
+Four functions lifted out of C<Tira::CLI::Police>: C<record_run> (the single
+recorder both a scheduled run and a manual C<Run now> click go through),
+C<run_due_commands> (runs every command-mode job a pass found due),
+C<advance_monitor_output> (drains a monitor's own leavings), and
+C<run_due_job> (the actual executor - C<open3>, read, decode, wait).
+
+Reached through a forward of the same name in C<Tira::CLI::Police>,
+required at the point of use. Not renamed, so every existing caller -
+C<Tira::CLI::Job>, and the tests that monkey-patch
+C<Tira::CLI::Police::run_due_job> directly - needed no change at all.
+
+Calls BETWEEN these functions, inside this module, go through their old,
+fully-qualified C<Tira::CLI::Police::> name rather than a bare call - the
+same tests that monkey-patch C<run_due_job> only override the glob on
+C<Tira::CLI::Police>, and an unqualified call from C<run_due_commands>
+would resolve to this package's own copy instead. C<$RUN_TIMEOUT> stays
+declared in C<Tira::CLI::Police> for the identical reason: a test
+localises it by that fully-qualified name.
+
+=head1 SEE ALSO
+
+L<Tira::CLI::Police>
+
+=cut

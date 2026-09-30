@@ -723,41 +723,5 @@ sub _apply_column_required_actions {
     return;
 }
 
-=head1 NAME
-
-Tira::CLI::Move - the move-path guards and the bookkeeping that follows a move
-
-=head1 DESCRIPTION
-
-Every function here is CALLED FROM OUTSIDE this module through C<Tira::CLI>'s
-own name - a one-line forward, required at the point of use rather than
-C<use>d at the top, exactly mirroring how C<Tira::CLI::Records> and
-C<Tira::CLI::Serve> are already reached. Nothing here is renamed, so every
-existing external caller - C<Tira::CLI>'s own dispatcher, and the callers
-elsewhere that already reach some of these by their fully-qualified
-C<Tira::CLI::> name (C<Tira::CLI::Browser>, C<Tira::CLI::Records>, and a
-handful of tests) - needed no change at all. Calls BETWEEN these functions,
-inside this module, are made directly by their own short name, not through
-that forward - the two functions this file calls that still live in
-C<Tira::CLI> (C<_populate_column_required_actions>, C<_record_touches_any>,
-themselves one-line forwards to C<Tira::CLI::Records>/C<Tira::CLI::Serve>)
-are the only calls here that cross back out, and they are qualified.
-
-The four guards that run on every C<move> (C<_column_chain_violation>,
-C<_column_required_action_violation>, C<_unjudged_answer_violation>,
-C<_column_entry_required_action_violation>), the bookkeeping that follows a
-successful one (C<_apply_column_required_actions>, C<_remind_one_at_a_time>,
-C<_reset_linked_tasks_on_return>), and the smaller helpers only they call
-(C<_columns_for>, C<_unmet_in_column>, C<_outstanding_here>,
-C<_populate_entry_required_actions>, C<_item_is_done>, C<_first_line>) are
-documented in full in C<Tira::CLI>'s own POD, deliberately left there: t/430
-asserts C<=head2 The four guards on the move path> is still in that file's own
-text, since a reader following the move path opens the index first.
-
-=head1 SEE ALSO
-
-L<Tira::CLI>
-
-=cut
 
 1;

@@ -1,0 +1,148 @@
+=head1 NAME
+
+Tira::CLI::Browser - the coderefs the browser dashboard is built from
+
+=head1 DESCRIPTION
+
+C<providers> returns the flat hash of named coderefs L<Tira::DashboardWeb>
+requires to build its Dancer2 app - one entry per route, so a browser mutation
+can never drift from the engine's own validated command surface.
+
+It lived in C<Tira::CLI> until 4.74, where it was 701 lines of the 6,048 that
+had to be read to change any command at all. It is needed by one invocation,
+the one that serves a board, so C<Tira::CLI> now loads it with C<require> at
+that point - the shape the CLI already used for L<Tira::DashboardWeb> and
+L<Tira::OnboardWeb>, and the reason a CLI call that never serves a board never
+compiles Dancer2.
+
+=head2 providers
+
+Takes C<tira> and C<project>. Returns the provider hash.
+
+TKT-516 added C<tasklist>, C<tasklist_add>, C<tasklist_update>,
+C<tasklist_next>, C<tasklist_shift>, C<tasklist_pop>, C<tasklist_unshift>,
+C<tasklist_slice>, C<tasklist_remove>, C<tasklist_import>, C<tasklist_prune>,
+C<tasklist_task_attach_add>, C<tasklist_task_attach_discard>,
+C<tasklist_task_ref_link>, and C<tasklist_task_ref_unlink>, giving the browser
+dashboard's Task List section full parity with C<tira.tasklist.*>.
+
+TKT-540: C<tasklist_update>, C<tasklist_remove>, C<tasklist_task_attach_add>,
+C<tasklist_task_attach_discard>, C<tasklist_task_ref_link>, and
+C<tasklist_task_ref_unlink> now forward the payload's C<session> field to the
+engine, matching the other eight tasklist providers - previously these six
+silently dropped it, so a session switched in the dashboard's own session box
+could view an item it could not then mutate once TKT-538 began enforcing
+session ownership.
+
+TKT-839 added C<jobs>, a read-only provider returning the board's repeated
+jobs as JSON for the dashboard's Repeated Jobs section and its C<GET /jobs>
+route. Note that adding any name here makes it B<mandatory> -
+C<build_psgi_app> refuses a provider hash missing an entry - so a new provider
+breaks every hand-built caller that does not also gain it, which is what five
+test files had to be taught when this one arrived.
+
+That last sentence is why the section's mutating verbs are three providers and
+not four. C<jobs> arrived with none, on the stated grounds that the section
+showed a schedule and did not run or edit it; TKT-843 then added C<job_run>,
+C<job_check> and C<job_save> for the play button and the editor, and TKT-858
+needed creation as well. Creation went into C<job_save> as a dispatch on
+whether the payload names a job - no id means C<job_add>, an id means
+C<job_update> - rather than becoming a C<job_create> entry, because the page
+already posts to one route and each extra name is a breaking change to every
+hand-built caller in the suite.
+
+C<jobs> gained one field of its own on TKT-861: C<running>, for enabled
+C<monitor>-kind jobs, so the section can say whether a monitor's process is up
+rather than only that the job exists. The verdict is
+C<Tira::Job::job_monitor_alive> - the same call the C<monitor-dead> rule makes -
+because a liveness check written for the browser would let the page and the
+police bridge answer one question two ways, which is the fault TKT-860 had to
+unpick. The process table is read once per request and only when there is an
+enabled monitor to judge; a cron job and a disabled monitor get no field at all,
+matching the rule's own silences.
+
+The read's own failure and an empty-but-successful read are told apart, since
+TKT-960: a C<$processes_attempted> flag makes the attempt happen exactly once
+per request regardless of outcome, and C<running> is set for an enabled
+monitor whenever the read C<defined> an arrayref - including an empty one,
+which is the case every monitor being genuinely down produces. Only a read
+that died leaves C<$processes> undef and the field absent, same as before.
+
+C<job_save> does not validate. C<job_add> and C<job_update> both reach
+C<_job_fields>, which owns the schedule requirement and the refusal of a
+message-mode monitor, so both paths inherit those rules by asking the engine.
+A monitor created through C<job_save> is started with
+C<Tira::CLI::Job::run_now>, the same executor C<job_run> uses - Michael's
+answer to Q-109 on TKT-858, chosen over creating it stopped, so a monitor made
+on the page is not immediately reported dead by C<monitor-dead>. A second
+spawn written here would not carry C<run_now>'s already-running refusal or its
+spawn/record atomicity fix.
+
+TKT-781 added C<gate_add>, C<gate_annotate>, C<evidence_add>, and
+C<evidence_annotate>, plus C<release_record> - the CLI side
+(C<tira.gate.add>, C<tira.evidence.add>, C<tira.release.record>) was fully
+built and load-bearing at this project's own pending-push/push gate, with
+no browser equivalent at all. No C<gate_list>/C<evidence_list> provider was
+added: C<gate_passing_log> and C<evidence> already arrive on every card's
+C<detail> fetch, the same reason C<checklist_list> has no provider of its
+own either - a separate read route would duplicate rather than add a
+capability.
+
+=head2 What is owed in the card's own column
+
+C<providers> exposes C<unmet_in_column>, and the C<detail> provider sets
+C<unmet_in_column> on the record it returns. Both call
+C<Tira::CLI::_unmet_in_column> - this column, minus exemptions, minus anything
+already done - which is the selection C<tira.required-action.list --blocking>
+answers with.
+
+That is the whole design of TKT-665 and it is worth stating rather than
+inferring. The dialog groups required actions by column and marked none of them,
+so a card with a history showed a column of headings and left the reader to work
+out which was owed. Marking the current one needs a number, and a number counted
+in JavaScript would be a second opinion about what C<done> means - which is the
+drift TKT-657 fixed when four readers of one status disagreed about case. So
+Perl decides and the browser renders: the dialog compares a column name and
+prints a count it was given.
+
+One answer, delivered two ways, deliberately - and only one of them reaches a
+browser. The record field is how the dialog gets it, without a fetch on every
+open. C<unmet_in_column> itself is NOT served on any HTTP route:
+L<Tira::DashboardWeb> declares the fifty-eight providers it serves and this is
+not among them, so it is reachable from Perl and nowhere else.
+
+It earns its place regardless. It is the addressable thing C<t/432> pins against
+C<--blocking>, compared item by item rather than by count so that a second
+implementation agreeing on today's total would still fail - and it is what a
+route would call if the dialog ever needed to ask rather than be told.
+
+An earlier draft of this paragraph said "there are two routes to one answer".
+In this codebase a route is an HTTP route, and a reader would have concluded the
+browser could fetch this. It cannot.
+
+=head2 Why the helpers are written out in full
+
+Six of C<Tira::CLI>'s private helpers are called from here, as
+C<Tira::CLI::_attachment_content_type> and so on rather than imported. Nothing
+loads this module except C<Tira::CLI>, so that package is always in memory by
+the time any of these run.
+
+Qualifying them is deliberate beyond necessity: a reader of this file can see
+that the helper lives in the index rather than here, which is the distinction
+the split exists to make. An import would have hidden exactly the fact worth
+showing.
+
+=head2 How this module is loaded
+
+C<Tira::CLI> pulls this in with C<require> at the point one of its verbs runs,
+so a command that never needs it never compiles it. It calls into L<Tira::CLI::Police>, and asks for
+that the same way - inside the sub that needs it, not at the top of this
+file. A C<use> there is correct and turns a lazy chain eager, which is how
+C<tira.next> came to compile four modules for the sake of one helper for the
+first hour after the split.
+
+=head1 SEE ALSO
+
+L<Tira::CLI>, L<Tira::DashboardWeb>
+
+=cut

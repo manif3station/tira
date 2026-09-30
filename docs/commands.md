@@ -1,5 +1,10 @@
 # Complete Command Ecosystem
 
+*Where the reference for a module lives, since 5.241 (TKT-1197): each module
+under `lib/` keeps its POD in a sibling `.pod` with the same basename, so
+`perldoc Tira::CLI` reads `lib/Tira/CLI.pod`. Nothing about the commands
+themselves changed; this is only where the module documentation is stored.*
+
 This is the reference: every command and argument, what it is for and when to
 use it. For the use cases — the workflows these commands serve, and which one
 to reach for — run `d2 tira.skills`.

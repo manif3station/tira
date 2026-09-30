@@ -1,0 +1,112 @@
+=head1 NAME
+
+Tira::DashboardWeb - Dancer2 PSGI adapter for live Tira boards
+
+=head1 DESCRIPTION
+
+Builds a minimal Dancer2 application whose root route regenerates and returns
+the self-contained Tira dashboard HTML. Data, record, and people routes feed
+the live board and its Jira-style card dialog; update and comment routes apply
+validated record mutations and answer failures as structured 422 JSON so the
+dialog can surface the engine's message. GET /tasklist, GET /tasklist/sessions
+(TKT-557), and the fourteen POST /tasklist/* routes give the Task List
+section full CLI parity with C<tira.tasklist.*>, mutations answered the
+same validated-422 way as every other route. C<serve> runs the PSGI
+application through Plack's bundled
+standalone server at a validated CLI bind address.
+
+Since 4.70 the application configures a Template Toolkit engine, which it never
+had before - the board's markup used to be built entirely by string
+concatenation in L<Tira>. C<views> is resolved from this module's own directory
+via C<__FILE__> rather than from the process's working directory, because an
+installed skill is run from anywhere and a relative path would find the
+templates only when the board happened to be served out of the source tree. The
+templates and the stylesheet and scripts beside them are inlined into the page
+at render, never linked: the board answers its own routes constantly, but it
+loads nothing from another host, and a C<< <link> >> or C<< <script src> >>
+would be exactly that. TKT-703.
+
+=head1 METHODS
+
+=head2 build_psgi_app
+
+Accepts every provider coderef this module's routes call through - every
+name is required, and a missing one is refused by name rather than
+discovered at request time. Grouped by the routes they answer (TKT-558,
+replacing a list of 12 that had not grown since long before most of
+these existed):
+
+=over 4
+
+=item * Board and card: render, data, move, detail, create, search, columns
+
+=item * Comments: comment_add, comment_update, comment_remove
+
+=item * Record fields: update, question_answer, question_mark, question_attach, column_apply
+
+=item * Attachments: attachment_fetch, attachment_add, attachment_remove, attachment_discard
+
+=item * Checklists and required actions: checklist_add, checklist_update, required_action_update
+
+=item * Gates, evidence and releases: gate_add, gate_annotate, evidence_add, evidence_annotate, release_record
+
+=item * Hierarchy and links: link_types, hierarchy_link, hierarchy_unlink, subitem_link, subitem_unlink, link_add, link_remove
+
+=item * Login and session: login_start, login_register, session_resume, session_peek, session_end, login_page
+
+=item * Work log and police: work_log, police_log, policies, policy_add, policy_remove, policy_decline
+
+=item * People: people
+
+=item * Repeated jobs: jobs, job_run, job_check, job_save, job_delete, job_stop, job_start
+
+The C</logs> route takes no provider: the record lives in this module, written
+by an C<after> hook and read back by C<_request_log>. It is served only when
+C<$SHOW_LOGS> is set, which C<tira.dashboard --show-logs> does. The C<after>
+hook rather than C<before> is deliberate - C<before> returns early for public
+paths and halts for unauthorised ones, so the status does not exist there yet,
+and a B<refused> request is the case the flag was asked for. EPC-007, TKT-852.
+
+C<job_run> answers the play button - it runs one job now whatever its
+schedule says, and starts a C<monitor> row rather than firing it, since a
+monitor has no schedule to bypass. C<job_check> answers the editor modal
+while somebody types, returning the B<engine's> own refusal for a
+malformed crontab rather than a second opinion written in JavaScript -
+two validators for one format is how the engine and the browser came to
+disagree about attachment content types (TKT-713).
+
+C<job_delete>, C<job_stop> and C<job_start> are the row's own verbs, added
+for his three complaints of 2026-09-03 - a job card could not be deleted,
+could not be edited, and command-or-message could not be chosen. Each verb
+already existed on the board; none of them had a surface. C<job_delete>
+lets the engine's refusal travel to the page rather than catching it: a
+B<running> monitor is refused with words that name C<tira.job.stop>,
+because removing the record while the process runs leaves a pid nothing
+points at. C<job_stop> goes through the CLI dispatcher rather than the
+engine sub, since the engine clears the record and the CLI signals, in
+that order - calling the engine alone would clear the record and signal
+nothing, which is the board-says-stopped-process-still-running state the
+card exists to remove. C<job_start> uses the same C<run_now> executor the
+play button does. EPC-014, TKT-892.
+
+=item * Task List: tasklist, tasklist_add, tasklist_update, tasklist_next, tasklist_shift, tasklist_pop, tasklist_unshift, tasklist_slice, tasklist_remove, tasklist_import, tasklist_prune, tasklist_task_attach_add, tasklist_task_attach_discard, tasklist_task_ref_link, tasklist_task_ref_unlink, tasklist_sessions
+
+=back
+
+Returns the Dancer2 PSGI application. The attachment fetch provider
+returns a typed payload that the GET /attachment route streams with its
+content type and disposition; unknown attachments answer 404.
+
+=head2 serve
+
+Runs the application using the supplied C<host>, C<port>, and provider values.
+
+C<with_police>/C<with_policy_bridge> (TKT-1028) travel to the workers via
+C<TIRA_DASHBOARD_POLICE>/C<TIRA_DASHBOARD_POLICY_BRIDGE>, the same way
+C<with_title> already does through C<TIRA_DASHBOARD_TITLE>, so a served
+page can show whether either companion process was successfully spawned
+alongside it - a one-time snapshot taken when the page is served, not a
+liveness probe; a companion that dies afterward is not reflected until
+the page is reloaded.
+
+=cut

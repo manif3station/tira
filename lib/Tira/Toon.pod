@@ -1,0 +1,19 @@
+=head1 NAME
+
+Tira::Toon - Data::TOON encoder/decoder overrides for Tira's default output
+
+=head1 DESCRIPTION
+
+Fixes three C<Data::TOON> shapes that render or read back wrong: a
+numeric-looking string loses its quoting on the way out, a map nested inside
+a list item flattens into the map around it, and the decoder cannot read
+that nested shape back in even when written correctly. Loaded with C<require>
+from C<Tira::format_output>'s C<toon> branch only - see that sub in
+F<lib/Tira.pm> for the call site, and the comment on each override below for
+the full account of the defect it closes.
+
+Loading this module applies its patches to C<Data::TOON::Encoder> and
+C<Data::TOON::Decoder> as a side effect of the C<require>; there is nothing
+else to call.
+
+=cut

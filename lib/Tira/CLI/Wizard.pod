@@ -1,0 +1,37 @@
+=head1 NAME
+
+Tira::CLI::Wizard - the onboarding questions, and the line editor that asks them
+
+=head1 DESCRIPTION
+
+C<_project_wizard> is the body behind C<tira.onboard>: the guided questions, the
+defaults offered for each, and C<_ask>, C<_ask_yes>, C<_edit_line>, C<_redraw>
+and C<_raw_mode> - the small line editor that lets an answer be corrected
+before it is given.
+
+C<tira.onboard> is the only command in the CLI that prompts. C<project.new> is
+deliberately argument-driven so that no script or agent invoking it can be left
+waiting on input. So this module is loaded by exactly one command, and
+C<Tira::CLI> requires it at that point rather than compiling it for every
+invocation.
+
+=head2 What stayed in Tira::CLI
+
+C<_expand_home> is used by the option handling in C<run> for every command, not
+only for the wizard's answers. C<_agent_available> is asked by the doctor too.
+Both are called from here by their full names.
+
+=head2 How this module is loaded
+
+C<Tira::CLI> pulls this in with C<require> at the point one of its verbs runs,
+so a command that never needs it never compiles it.
+
+It calls into no sibling module. This paragraph said otherwise until 4.74 -
+one note written once and pasted into all eight, describing a chain three of
+them do not sit in.
+
+=head1 SEE ALSO
+
+L<Tira::CLI>
+
+=cut

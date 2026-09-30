@@ -1,0 +1,49 @@
+=head1 NAME
+
+Tira::OnboardWeb - a disposable, no-login Dancer2 form for tira.onboard -o browser
+
+=head1 DESCRIPTION
+
+One page, one C<POST /> route: renders every field the CLI wizard
+(C<Tira::CLI::_project_wizard>) collects as a single form, validates and
+creates the project through the same C<create> provider the CLI's onboarding
+command already reaches (C<_invoke> for the C<onboard> command), and answers
+with a thank-you page. A second request after a successful creation gets a
+503 rather than a second form - the session is meant for exactly one
+submission. C<GET /> pre-fills the form from whatever project already
+exists at the given C<dir> (TKT-543), the same way the CLI wizard's own
+C<_wizard_defaults> does, via the injectable C<defaults> coderef. The form
+also offers C<notify_after>/C<agent>/C<session>/C<collector> and one field
+per the injectable C<questions> arrayref's entries (shaped like
+C<Tira-E<gt>onboarding_questions()>'s own return value), matching every
+field the CLI wizard's guided flow collects (TKT-553).
+
+=head1 METHODS
+
+=head2 build_psgi_app
+
+Accepts a C<create> coderef (called with a hashref of answers, expected to
+either return a project summary or die with a validation message), an
+optional C<dir> (the directory C<GET /> pre-fills from, and the fallback
+C<POST /> uses when the submitted field is cleared - TKT-776), an optional
+C<defaults> coderef (called with that directory, expected to return a
+hashref shaped like C<Tira::CLI::_wizard_defaults>' own return value), and
+an optional C<questions> arrayref (shaped like
+C<Tira-E<gt>onboarding_questions()>'s own return value, one form field
+rendered per entry) - and returns the Dancer2 PSGI application.
+
+Every value C<_render_form> puts into the page - C<@FIELDS> row values and
+every part of a C<questions> entry (C<text>, each C<option>, and C<id>) -
+goes through C<_escape> before it is interpolated, and C<_escape> converts
+all five HTML-significant characters (C<& < > "> and the single quote).
+Until TKT-688 a question's C<options> and C<id> were interpolated raw,
+which mattered only once C<questions> stopped being the module's own
+hardcoded default and started coming from a caller.
+
+=head2 serve
+
+Runs the application using C<host>, C<port>, C<create>, C<dir>, C<questions>, and
+C<defaults>, on a single-process synchronous server so a successful
+submission can stop it cleanly afterwards.
+
+=cut

@@ -1,0 +1,34 @@
+=head1 NAME
+
+Tira::CLI::Job::Monitor - starting and stopping a monitor
+
+=head1 DESCRIPTION
+
+The process lifecycle of a monitor job, lifted out of L<Tira::CLI::Job> when
+TKT-920's work took that file past the 500-line rule F<t/524> enforces.
+
+C<_start_monitor> refuses the cases that would leave the board saying something
+untrue - a cron job, a disabled job, a job with no command, a job already
+running - then spawns and records, killing the child if the record cannot be
+written.
+
+C<_spawn_monitor> and C<_signal_monitor> are the pair. They have to agree about
+what the recorded pid IS, and for one release they did not: the spawn returned
+the pid of the shell that owns the pipe, and the signal sent C<TERM> to that pid
+alone while the command and the feeder - and, with C<restart_every>, the loop
+subshell - carried on as orphans. The spawn now execs through a shim that makes
+that pid a process-group leader, and the signal reaches the group.
+
+=head1 WHAT MUST NOT REGRESS
+
+The two subs stay in one file. Their whole history is a disagreement that was
+possible because they were far apart.
+
+C<_signal_monitor> tries the B<group> first and the bare pid only as a fallback.
+A monitor started before this shipped leads no group of its own - it sits in
+whatever group ran C<job.start> - so a group signal aimed at it would reach the
+caller. That is why the fallback is the narrow one, and why it answers
+C<process> rather than C<group>: the rest of that monitor is still running, and
+something has to say so.
+
+=cut

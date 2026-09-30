@@ -1,0 +1,53 @@
+=head1 NAME
+
+Tira::CLI::Board - the board's own rules: columns, the next card, logins, policies
+
+=head1 DESCRIPTION
+
+C<column_roles> answers who may work a column. C<next_card> answers which card
+comes next. C<login_verbs> covers C<login.register>, C<login.check>,
+C<login.status> and C<login.logout>. C<policy_verbs> covers C<policy.add>,
+C<policy.list> and C<policy.remove>. C<notify_moves> answers what moved between
+columns, C<rule_suspend> suspends a rule, and C<attachment_add_files> is the
+file-taking form of C<attachment.add>.
+
+C<_empty_answer_names_board> is the one member here that is not a command body.
+It says which board an empty list was empty for, and it is shared by
+C<job.list>, C<tasklist.list> and C<warning.list> - the three reads that resolve
+their board from the working directory when the caller names none and treat an
+absent file as an empty result. It lives here rather than beside the dispatch
+that calls it because C<t/430> holds C<Tira::CLI> to 3,000 lines as an index and
+refused the tree at 3,009; that guard's advice is to lift a concern out rather
+than raise the number, and "which board an answer was about" is this module's
+own subject. TKT-964.
+
+Seven bodies, all of them blocks inside C<Tira::CLI::_invoke> until 4.74. None
+is large alone; together they were about 150 lines that every other command had
+to be read past.
+
+This entry said "four command bodies... 97 lines" for the first hour, because
+three more arrived in a later slice and the POD was not re-read. A second reader
+found it. It is the same fault the whole card is about, in the file that exists
+because of it.
+
+=head2 The captures that had to be re-taken
+
+C<login_verbs> and C<policy_verbs> chose their branch from C<$1>, the capture
+left by the C<if> in C<_invoke> they sat inside. A sub reading a caller's
+capture gets whatever the last match anywhere left, and takes a branch rather
+than failing - so each matches C<$command> itself.
+
+=head2 How this module is loaded
+
+C<Tira::CLI> pulls this in with C<require> at the point one of its verbs runs,
+so a command that never needs it never compiles it. It calls into L<Tira::CLI::Police>, and asks for
+that the same way - inside the sub that needs it, not at the top of this
+file. A C<use> there is correct and turns a lazy chain eager, which is how
+C<tira.next> came to compile four modules for the sake of one helper for the
+first hour after the split.
+
+=head1 SEE ALSO
+
+L<Tira::CLI>
+
+=cut

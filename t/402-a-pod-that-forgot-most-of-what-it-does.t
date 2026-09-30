@@ -27,8 +27,14 @@ die "Could not find \@PROVIDERS in $module\n" if !defined $providers_block;
 my @providers = $providers_block =~ /\[\s*(\w+)\s*=>/g;
 ok( scalar(@providers) >= 40, 'found the full @PROVIDERS table (sanity: at least 40 entries)' );
 
-my ($pod) = $body =~ /=head2 build_psgi_app\n\n(.*?)\n\n=head2/s;
-die "Could not find build_psgi_app's own POD section in $module\n" if !defined $pod;
+# TKT-1197: the module's POD lives in the sibling DashboardWeb.pod, not in the .pm.
+( my $pod_file = $module ) =~ s/\.pm\z/.pod/;
+open my $pfh, '<', $pod_file or die "Cannot read $pod_file: $!";
+my $pod_body = do { local $/; <$pfh> };
+close $pfh;
+
+my ($pod) = $pod_body =~ /=head2 build_psgi_app\n\n(.*?)\n\n=head2/s;
+die "Could not find build_psgi_app's own POD section in $pod_file\n" if !defined $pod;
 
 my @missing = grep { $pod !~ /\Q$_\E/ } @providers;
 is_deeply( \@missing, [], 'every @PROVIDERS name is mentioned in build_psgi_app\'s own POD' )

@@ -685,6 +685,11 @@ Policies live in the project config, so they travel with the project and
 anybody can read them. Police keeps its own state — the violation ledger, the
 bridge log — outside the project entirely.
 
+The same holds for Tira's own documentation: since 5.241 (TKT-1197) each module
+under `lib/` keeps its POD in a sibling `.pod` of the same basename, so a rule's
+explanation can be read with `perldoc` without opening the code, and `t/1197`
+fails naming any module that carries it inline.
+
 ## A finding is one line, since 5.86
 
 Every reader of the bridge is a line reader: the terminal tails it, the page

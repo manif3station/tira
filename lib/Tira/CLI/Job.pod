@@ -143,4 +143,8 @@ what a command-mode click has always done through the same helper - the due
 pass alone still leaves it unset for a message-mode job, since nothing ever
 executes for it there. Command-mode C<run_now> is unaffected.
 
+=head1 A START WITH NO ID
+
+C<job.start> refuses an empty C<--id> first, as C<A job id is required>, before it looks the job up. It used to build C<No job $args-E<gt>{id} on this board> from the unset id, which printed an uninitialized-value warning and named a job with no name; C<job.stop> already said C<A job id is required>. An id that is given but unknown is still answered with the engine's own C<No job 'ID'>. TKT-1202.
+
 =cut

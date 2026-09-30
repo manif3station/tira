@@ -2687,6 +2687,13 @@ The command that raised the message is checked against a small override
 table before the single-answer default; every message with one true answer
 is untouched.
 
+**`job.start` with no id says so, since 5.244** (TKT-1202). It printed a Perl
+uninitialized-value warning and refused with `No job  on this board`, naming a
+job with no name, where `job.stop` said `A job id is required`. It now refuses an
+empty id first with that sentence and both commands add `- supply it with --id`
+from the same table as the refusals above. An id that is given but not on the
+board, and a start with a real id, are unchanged.
+
 **Four more refusals name their option, since 5.243** (TKT-1201). `comment.add`
 with no text (`A comment needs some text`), `tasklist.add` with no text (`Task
 text is required`), the id-taking `tasklist` commands with no id (`Task id is

@@ -270,6 +270,10 @@ sub dispatch {
     return run_now( $tira, $args ) if $command eq 'job.run';
 
     if ( $command eq 'job.start' ) {
+        # job.stop already refuses an empty id in these words; job.start built
+        # "No job $args->{id}" from the unset id instead, which printed an
+        # uninitialized-value warning and named a job with no name. TKT-1202.
+        die "A job id is required\n" if ( $args->{id} // '' ) eq '';
         my ($job) = grep { $_->{id} eq ( $args->{id} // '' ) }
           @{ $tira->job_list( %{$args} ) };
         die "No job $args->{id} on this board\n" if !$job;

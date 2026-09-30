@@ -113,6 +113,7 @@ my %SUPPLIED_BY = (
     'A comment needs some text'            => [ 'text',     'supply it with' ],
     'Task text is required'                => [ 'text',     'supply it with' ],
     'Task id is required'                  => [ 'id',       'supply it with' ],
+    'A job id is required'                 => [ 'id',       'supply it with' ],  # job.start and job.stop. TKT-1202.
     'Required item or status is required'  => [ 'item',     'supply it with' ],
     'How many seconds?'                    => [ 'seconds',  'supply it with' ],
     'A move needs to say who is making it' => [ 'author',   'supply it with' ],

@@ -1255,6 +1255,15 @@ says what to supply, as `checklist.add` and `question.ask` always did:
 `--item` for a required action. The refusal is otherwise unchanged - the same
 exit status, nothing written - and a call that gives the value works as before.
 
+### job.start with no id
+
+`d2 tira.job.start` with no `--id` used to print a Perl "uninitialized value"
+warning and refuse with `No job  on this board`, a sentence about a job with no
+name (TKT-1202, 5.244). It is now refused once, in the same words `job.stop`
+uses, `A job id is required - supply it with --id`, with no warning and nothing
+started. An id that is not on the board is answered as before, and a start with
+a real id is unchanged.
+
 ## License
 
 Tira is released under the MIT License. See [LICENSE](LICENSE).

@@ -1,5 +1,20 @@
 Revision history for Tira
 
+5.244  2026-09-30
+    - TKT-1202: `d2 tira.job.start` with no `--id` printed a Perl warning, `Use
+      of uninitialized value in concatenation (.) or string`, from
+      lib/Tira/CLI/Job.pm, and then refused with `No job  on this board` - the
+      job's name is empty, so the sentence has two spaces where it should have
+      an id. Its neighbour `job.stop` refuses the same mistake as `A job id is
+      required`. `job.start` now refuses an empty id first, in those words, so no
+      warning is printed and nothing else is read, and both commands now say to
+      supply it with `--id` because `A job id is required` was added to the
+      `%SUPPLIED_BY` table in lib/Tira/CLI/Usage.pm. A start with an id that is
+      not on the board is answered as it always was, naming that id, and a
+      start with a real id is unchanged. Found by the bug hunt (JOB-001) by
+      running every documented command with only `--author` inside a
+      developer-dashboard container. New t/1202 holds it.
+
 5.243  2026-09-30
     - TKT-1201: four commands refused a missing value in words that named a
       thing rather than the option that supplies it. `comment.add` with no text

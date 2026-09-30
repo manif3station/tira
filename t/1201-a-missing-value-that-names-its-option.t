@@ -76,6 +76,8 @@ for my $case (@cases) {
     my ( $status, $said, $warned ) = run( $command, @$argv );
 
     isnt( $status, 0, "$command with the value left out is still refused" );
+    # non-empty is the whole claim for this one: the assertions after it name the
+    # option, and would pass vacuously against a command that said nothing.
     like( $said, qr/\S/, "$command says something about it" );
     like( $said, qr/\Q$option\E\b/, "$command names $option, the option that supplies it" );
     is_deeply( $warned, [], "$command emits no Perl warning at all" );

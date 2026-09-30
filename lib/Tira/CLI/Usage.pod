@@ -19,6 +19,10 @@ TKT-298 until TKT-635 added the engine's).
 
 C<%COMMAND_OVERRIDE>, keyed by the raising command, is checked before C<%SUPPLIED_BY>'s single answer, via C<_names_the_option>'s optional second argument. TKT-689.
 
+=head2 Four more messages, named at the same boundary
+
+C<A comment needs some text>, C<Task text is required>, C<Task id is required> and C<Required item or status is required> are entries in C<%SUPPLIED_BY> and translate to C<--text>, C<--text>, C<--id> and C<--item>. They were the last refusals of that shape still naming a thing rather than the option. TKT-1201.
+
 =head2 A typo and a quoted value are not the same "unknown option"
 
 C<_unknown_option_message> tells them apart before suggesting anything.

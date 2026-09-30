@@ -2687,6 +2687,16 @@ The command that raised the message is checked against a small override
 table before the single-answer default; every message with one true answer
 is untouched.
 
+**Four more refusals name their option, since 5.243** (TKT-1201). `comment.add`
+with no text (`A comment needs some text`), `tasklist.add` with no text (`Task
+text is required`), the id-taking `tasklist` commands with no id (`Task id is
+required`) and `required-action.update` with no item or status (`Required item
+or status is required`) named a thing and not the option that supplies it. They
+now read `- supply it with --text`, `--text`, `--id` and `--item`, from the same
+table as every refusal above. The exit status, the absence of a Perl warning and
+the unchanged card are as before, and a call that supplies the value is
+untouched.
+
 **A move that gives no `--column` at all is refused before any of that, since
 5.242 (TKT-1200).** The refusal is the single line `Missing --column - name the
 column to move the card to.`: it names the option that is missing rather than

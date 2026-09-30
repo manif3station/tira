@@ -1243,6 +1243,18 @@ card to.` - with no warning and nothing written to the card. The usage line
 with it. A column name that is given but malformed is answered as before, and a
 move that gives `--column` is unchanged.
 
+### Four refusals that now name their option
+
+`d2 tira.comment.add --ref TKT-001` with no text, `d2 tira.tasklist.add` with no
+text, a `tasklist` command with no `--id`, and `d2 tira.required-action.update`
+with no item used to refuse in words that named a thing and not the option to
+type (`A comment needs some text`, `Task text is required`, `Task id is
+required`, `Required item or status is required`). Since 5.243 (TKT-1201) each
+says what to supply, as `checklist.add` and `question.ask` always did:
+`... - supply it with --text` for a comment or a task, `--id` for a task id and
+`--item` for a required action. The refusal is otherwise unchanged - the same
+exit status, nothing written - and a call that gives the value works as before.
+
 ## License
 
 Tira is released under the MIT License. See [LICENSE](LICENSE).

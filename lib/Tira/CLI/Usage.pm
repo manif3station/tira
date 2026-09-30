@@ -108,6 +108,12 @@ my %SUPPLIED_BY = (
     'Evidence annotation note is required' => [ 'note',     'supply it with' ],
     'A question needs some text'           => [ 'text',     'supply it with' ],
     'An answer needs some text'            => [ 'text',     'supply it with' ],
+    # comment.add, tasklist.* and required-action.update were the last to name a
+    # thing rather than the option that supplies it. TKT-1201.
+    'A comment needs some text'            => [ 'text',     'supply it with' ],
+    'Task text is required'                => [ 'text',     'supply it with' ],
+    'Task id is required'                  => [ 'id',       'supply it with' ],
+    'Required item or status is required'  => [ 'item',     'supply it with' ],
     'How many seconds?'                    => [ 'seconds',  'supply it with' ],
     'A move needs to say who is making it' => [ 'author',   'supply it with' ],
     'A change needs to say who is making it' => [ 'author', 'supply it with' ],

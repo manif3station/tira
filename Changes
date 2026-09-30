@@ -1,5 +1,22 @@
 Revision history for Tira
 
+5.243  2026-09-30
+    - TKT-1201: four commands refused a missing value in words that named a
+      thing rather than the option that supplies it. `comment.add` with no text
+      said `A comment needs some text`, `tasklist.add` said `Task text is
+      required`, the `tasklist` commands that take an id said `Task id is
+      required`, and `required-action.update` said `Required item or status is
+      required` - each correct, each refusing before anything was written, and
+      none saying which option to type, where `checklist.add`, `question.ask`
+      and `evidence.add` already said `supply it with --item`, `--text` and
+      `--ref`. The four messages were simply absent from the `%SUPPLIED_BY`
+      table in lib/Tira/CLI/Usage.pm, so they now read `... - supply it with
+      --text`, `--text`, `--id` and `--item`. Only the wording changes: the
+      exit status, the absence of a Perl warning and the unchanged card are the
+      same, and a call that supplies the value is untouched. Found by the
+      improvement hunt (JOB-002) by running commands with only `--author`
+      inside a developer-dashboard container. New t/1201 holds it.
+
 5.242  2026-09-30
     - TKT-1200: a move that named no column, `d2 tira.ticket.move --ref X` with
       no `--column`, was refused correctly but noisily. Perl printed `Use of

@@ -1232,6 +1232,17 @@ fails naming any module that carries an inline POD directive or has no sibling
 `t/03-metadata.t` runs `podchecker` over every `.pod`. Writing a new module,
 put the POD in its `.pod` from the first commit.
 
+### A move with no --column
+
+`d2 tira.ticket.move --ref TKT-001` with no `--column` used to be refused with
+three Perl "uninitialized value" warnings in front of it and an error that called
+the missing option an invalid column name (TKT-1200, 5.242). It is now refused
+once, first, in a single line - `Missing --column - name the column to move the
+card to.` - with no warning and nothing written to the card. The usage line
+(`--help`) has always shown `--column SLUG` as required; the refusal now agrees
+with it. A column name that is given but malformed is answered as before, and a
+move that gives `--column` is unchanged.
+
 ## License
 
 Tira is released under the MIT License. See [LICENSE](LICENSE).

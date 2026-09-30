@@ -29,6 +29,14 @@ documented in full in C<Tira::CLI>'s own POD, deliberately left there: t/430
 asserts C<=head2 The four guards on the move path> is still in that file's own
 text, since a reader following the move path opens the index first.
 
+C<_column_chain_violation> is also where a move that names no column is
+refused (TKT-1200, since 5.242). It asks first, before the C<record_show> and
+before any of the C<exists> lookups on the column, and answers C<Missing
+--column - name the column to move the card to.> for an absent or empty
+column; it used to fall through to three lookups on an undef, printing a Perl
+"uninitialized value" warning each time, and end at the slug check's C<Invalid
+column name>. The C<discard> early return still comes first.
+
 =head1 SEE ALSO
 
 L<Tira::CLI>

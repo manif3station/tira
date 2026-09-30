@@ -690,6 +690,15 @@ under `lib/` keeps its POD in a sibling `.pod` of the same basename, so a rule's
 explanation can be read with `perldoc` without opening the code, and `t/1197`
 fails naming any module that carries it inline.
 
+A refusal that a policy or a gate depends on has to be a refusal in words, not a
+side effect of a failed lookup. Since 5.242 (TKT-1200) a move that gives no
+`--column` is refused as `Missing --column - name the column to move the card
+to.` as the first thing the move-order guard does, before the guards that follow
+it (required actions, the unjudged-answer check, the entry list) or the
+checklist rule read the column, instead of tripping three `exists` lookups on
+an undefined column and printing Perl warnings; the rules behind the move are
+unchanged and run only for a move that names a column.
+
 ## A finding is one line, since 5.86
 
 Every reader of the bridge is a line reader: the terminal tails it, the page

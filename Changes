@@ -1,5 +1,21 @@
 Revision history for Tira
 
+5.242  2026-09-30
+    - TKT-1200: a move that named no column, `d2 tira.ticket.move --ref X` with
+      no `--column`, was refused correctly but noisily. Perl printed `Use of
+      uninitialized value $args{"column"} in exists` three times, from
+      lib/Tira/CLI/Move.pm, before the slug check refused with `Invalid column
+      name - the option is --column` - wording that blames a name nobody gave.
+      It is now refused once, first, before anything reads the column, with the
+      single line `Missing --column - name the column to move the card to.` No
+      warning is printed and the card is left exactly as it was. A malformed
+      name that IS given is answered as it always was, and a valid `--column`
+      moves exactly as before. The `--help` line already showed `--column` as
+      required; this makes the refusal agree with it. Found by the hourly bug
+      hunt (JOB-001), reproduced in a developer-dashboard container. New
+      t/1200 holds it: no warning, the message, one line, the card unchanged,
+      an empty `--column`, and a control move.
+
 5.241  2026-09-30
     - TKT-1197: twenty-one modules still carried their POD inline, after the
       last line of code, while eight others (lib/Tira.pm and the CLI split

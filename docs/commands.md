@@ -2687,6 +2687,15 @@ The command that raised the message is checked against a small override
 table before the single-answer default; every message with one true answer
 is untouched.
 
+**A move that gives no `--column` at all is refused before any of that, since
+5.242 (TKT-1200).** The refusal is the single line `Missing --column - name the
+column to move the card to.`: it names the option that is missing rather than
+calling a name invalid, prints no Perl "uninitialized value" warning (the old
+path printed three), and leaves the card as it was. An empty `--column` is the
+same mistake and gets the same line. A name that is given but malformed still
+gets the engine's `Invalid column name` above, and a valid `--column` moves as
+before. The usage line from `--help` already showed `--column SLUG` as required.
+
 **A command with no matching flag at all names what it does take, not what
 it doesn't.** `hierarchy.link` takes neither `--ref` nor any single flag -
 it wants `--parent` and `--child` together - so the generic "Record

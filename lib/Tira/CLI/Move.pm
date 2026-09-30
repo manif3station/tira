@@ -58,6 +58,12 @@ sub _columns_for {
 sub _column_chain_violation {
     my ( $tira, %args ) = @_;
     return undef if ( $args{column} // '' ) eq 'discard';
+
+    # A move that names no column used to fall through to three `exists` lookups
+    # on an undef and print "Use of uninitialized value" each time before the slug
+    # check called the missing option an invalid name. Asked first, it is refused
+    # once, in words, before anything reads the column. TKT-1200.
+    return "Missing --column - name the column to move the card to.\n" if ( $args{column} // '' ) eq '';
     my $current = eval { $tira->record_show(%args) };
     return undef if !$current;
     my $from = $current->{column};

@@ -3101,6 +3101,13 @@ A bad byte is repaired by reading it as latin-1 and writing it back as UTF-8, so
 `0xD7` becomes the `×` somebody typed. Substituting a replacement character
 instead would turn the damage into data permanently.
 
+Doctor does not read database files. Since 5.247 (TKT-1205) that covers a
+database's SQLite sidecars - `.db-wal`, `.db-shm` and `.db-journal` - as it
+always covered the `.db` (attachments and `.git` are skipped too; every other
+file under `.tira/` is still scanned): another tool's database in `.tira/` (the
+telegram skill's, say) is binary by design, and listing its sidecars as damaged
+was a false alarm that `--repair` would have turned into rewritten database bytes.
+
 Afterwards `card-damaged` settles by itself, because the file reads strictly
 again.
 

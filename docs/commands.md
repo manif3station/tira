@@ -4118,7 +4118,16 @@ A bad byte is repaired by reading it as latin-1 and writing it back as UTF-8, so
 `0xD7` becomes the `×` somebody typed; substituting a replacement character
 would make the damage permanent. Nothing else in the file moves. Attachments are
 never touched, being bytes that were never meant to decode, and neither is the
-notification database.
+notification database - **nor, since 5.247 (TKT-1205), any file SQLite keeps
+beside a database**: `NAME.db-wal` and `NAME.db-shm` (WAL mode) and
+`NAME.db-journal` (rollback mode). They are binary by design, and the skip had
+been written for the `.db` alone, so another tool's database sitting in `.tira/`
+(the telegram skill's `telegram.messages.db`, say) had its two sidecars reported
+as `damaged` on a healthy board - and, under `--repair`, would have had its live
+bytes rewritten. Both of doctor's passes, the byte check and the shape check,
+now share one pattern for what counts as a database file, so they cannot
+disagree. The skip is anchored to the end of the name: `notes.db-wal.txt` is
+still scanned.
 
 A corrupted `evidence`/`attachments`/`gate_passing_log` field is a different
 kind of damage - the JSON is valid, just the wrong shape: `null`, or a

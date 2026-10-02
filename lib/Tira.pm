@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.246';
+our $VERSION = '5.247';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -15629,6 +15629,14 @@ sub doctor {
     my $home = File::Spec->catdir( $root, '.tira' );
 
     my ( @damaged, @repaired );
+
+    # TKT-1205. A database is more than its .db: SQLite in WAL mode keeps a
+    # -wal and a -shm beside it, and a -journal in rollback mode, all binary by
+    # design. One pattern for both walkers below, so they cannot drift apart -
+    # under --repair, scanning one of these would rewrite another tool's live
+    # database files, not only raise a false alarm.
+    my $database = qr/\.db(?:-wal|-shm|-journal)?\z/;
+
     my $look = sub {
         my $path = $File::Find::name;
         return if !-f $path;
@@ -15637,7 +15645,7 @@ sub doctor {
         # an image, a bundle. Repairing one would corrupt the thing it was
         # trying to protect. The notification database is the same.
         return if $path =~ m{/attachments/};
-        return if $path =~ /\.db\z/;
+        return if $path =~ $database;
         return if $path =~ m{/\.git/};
 
         open my $fh, '<:raw', $path or return;
@@ -15697,7 +15705,7 @@ sub doctor {
         my $path = $File::Find::name;
         return if !-f $path;
         return if $path =~ m{/attachments/};
-        return if $path =~ /\.db\z/;
+        return if $path =~ $database;
         return if $path =~ m{/\.git/};
 
         open my $fh, '<:raw', $path or return;

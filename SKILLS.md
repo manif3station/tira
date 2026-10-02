@@ -786,7 +786,13 @@ guards the write, not the read. TKT-754.
   as latin-1 and writing it back as UTF-8, so `0xD7` becomes the multiplication
   sign somebody meant rather than a replacement mark — substituting one would
   make the damage permanent. Nothing else in the file moves, and attachments are
-  never touched, being bytes that were never meant to decode.
+  never touched, being bytes that were never meant to decode. **Since 5.247
+  (TKT-1205) it also leaves alone the files SQLite keeps beside a database** -
+  `.db-wal`, `.db-shm` and `.db-journal`: only the `.db` itself used to be
+  skipped, so another tool's database in the board directory showed two false `damaged`
+  entries on a healthy board, and `--repair` would have rewritten its live
+  bytes. Both passes share one pattern; a name that only *contains* `.db-wal`,
+  such as `notes.db-wal.txt`, is still scanned.
 
 - `tira.project.update [--name TEXT] [--dashboard-host HOST] [--dashboard-port PORT]
   [--listen HOST[:PORT]] [--notify-after MINUTES] [--collector NAME]

@@ -1,5 +1,21 @@
 Revision history for Tira
 
+5.247  2026-10-02
+    - TKT-1205: `d2 tira.doctor` reported another tool's SQLite sidecar files as
+      damaged. On a board whose `.tira/` also holds a database in WAL mode (the
+      telegram skill's `telegram.messages.db`), it printed `damaged[2]` for
+      `telegram.messages.db-shm` and `telegram.messages.db-wal`, each with
+      invalid UTF-8 byte offsets, and `repaired[0]`. Both are binary by design
+      and `PRAGMA integrity_check` on the database itself returned ok. Doctor
+      already skipped a path ending in `.db`; its two walkers (the byte check
+      and the card-shape check) each carried that one pattern and nothing for
+      the sidecars. They now share a single pattern that also skips `.db-wal`,
+      `.db-shm` and `.db-journal`, anchored to the end of the name, so
+      `notes.db-wal.txt` is still scanned. Under `--repair` this was worse than
+      a false alarm: it would have rewritten the sidecars' live bytes. Reported
+      from the budget project. New t/1205 holds it, including that `--repair`
+      leaves the sidecars byte-for-byte unchanged.
+
 5.246  2026-09-30
     - TKT-1204: `d2 tira.changes --help` printed `Unknown option: help`, then the
       usage line, and exited 255, where every other command prints its usage and

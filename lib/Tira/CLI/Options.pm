@@ -125,6 +125,16 @@ my %OPTION_READ_BY = (
         instead  => 'tira.evidence.add --ref REF --summary TEXT --uri TEXT, which is the command that reads it',
     },
 
+    # The override for release.record's check that --fix-version agrees with
+    # the version in the ref's own commit (TKT-1207). It is read in exactly
+    # one place, release_record; on any other command it would be accepted and
+    # dropped, the same silent swallow TKT-431 closed for --uri.
+    force_version => {
+        flag     => 'force-version',
+        commands => qr/\Arelease\.record\z/,
+        instead  => 'tira.release.record, which is the command that reads it',
+    },
+
     # A ticket/epic/sow has no 'details' field - the narrative one is
     # key_details - but the shared parser knows --details since gate.add
     # takes it (dies without one) and release.record forwards it into its

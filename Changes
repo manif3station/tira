@@ -1,5 +1,27 @@
 Revision history for Tira
 
+5.248  2026-10-02
+    - TKT-1207: `d2 tira.release.record` accepted any version-shaped
+      `--fix-version`, so `5.245` was recorded on a card whose own commits carry
+      `VERSION=5.240`. It was found only by mapping each commit to its version by
+      hand while releasing ten cards in one batch; a wrong-but-real version is
+      read later as "this fix shipped in X". The command now looks up, in the new
+      Tira::CLI::Release module, the `VERSION=` line of `.env` at the oldest
+      commit whose subject begins `REF:`, and hands it to the engine as a plain
+      value (the engine invokes no external process, as police does for its
+      facts). The engine refuses a difference, naming the ref, both versions and
+      the commit, with nothing written for that card; in a batch only that card
+      lands in `refused[]` and the others are recorded. It stays silent where
+      there is nothing to compare: a ref no commit names (a review card), a
+      commit with no `.env` or `VERSION` line, a board outside git or in a
+      shallow clone (whose oldest visible commit is not the card's oldest), and
+      a value that is not a version number (`none`, `n/a - ...`). A new
+      `--force-version` records the given version anyway, for a card that
+      shipped in a later release than its commit; on any other command it is
+      refused, like every option that only one command reads. The browser
+      dashboard's release dialog does not do the look-up and is not checked.
+      Found by the improvement hunt (JOB-002). New t/1207 holds it.
+
 5.247  2026-10-02
     - TKT-1205: `d2 tira.doctor` reported another tool's SQLite sidecar files as
       damaged. On a board whose `.tira/` also holds a database in WAL mode (the

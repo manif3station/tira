@@ -1,0 +1,35 @@
+=head1 NAME
+
+Tira::CLI::Release - the version each card's own commit shipped in
+
+=head1 DESCRIPTION
+
+C<tira.release.record> refuses a C<--fix-version> that disagrees with the
+version the card's own commit carries (TKT-1207, 5.248). Finding that version
+means asking git, and the engine invokes no shell and no external process - the
+guarantee that lets it be trusted inside another tool - so the asking is done
+here and the answer is handed to the engine as a plain value, the same split
+C<tira.police> uses for its facts.
+
+C<Tira::CLI> loads this module with C<require> when C<release.record> runs
+without C<--force-version>, so no other command ever compiles it.
+
+=head2 commit_versions
+
+    my $facts = Tira::CLI::Release::commit_versions( $tira, \%args );
+
+Returns C<{ REF =E<gt> { commit =E<gt> SHA, version =E<gt> VERSION } }> for the ref (or
+refs, for a batch) in C<%args>: the C<VERSION=> line of F<.env> at the OLDEST
+commit whose subject begins C<REF:>, which is the commit that introduced the
+fix and the one this project's convention bumps the version in. A ref is left
+out when there is nothing to compare: the project is not a git repository or is
+a shallow clone (whose oldest visible commit is not the card's oldest), no
+commit names the ref (a review card has none), or the commit has no F<.env> or
+no C<VERSION> line. The subject test is exact, so C<TKT-12> does not claim
+C<TKT-120>'s commits.
+
+=head1 SEE ALSO
+
+L<Tira::CLI>, L<Tira::CLI::Serve>
+
+=cut

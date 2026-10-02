@@ -1276,6 +1276,19 @@ required - a cron expression, or 'monitor'`, naming a thing and not the option
 --schedule`. Nothing else changes: the exit status, no warning and nothing
 written.
 
+### A release recorded with the wrong version
+
+`d2 tira.release.record --fix-version 5.245` used to be accepted on a card whose
+own commits carry `VERSION=5.240` (TKT-1207, 5.248): it only checked that the
+value looked like a version. In a git repository the command now reads the
+`VERSION=` line of `.env` at the oldest commit whose subject begins `REF:` and
+refuses a different `--fix-version`, naming the ref, both versions and the
+commit, with nothing written for that card. A card no commit names, a board
+outside git or in a shallow clone, `none` and `n/a - ...` are never compared, and `--force-version`
+records the version anyway for a card that shipped in a later release. In a
+batch only the refused card is left out. The browser dashboard's release dialog
+does not do this look-up and is not checked.
+
 ### tira.changes --help
 
 `d2 tira.changes --help` used to answer `Unknown option: help` and exit 255,

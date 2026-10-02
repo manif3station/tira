@@ -199,6 +199,7 @@ my %intentionally_pod_free = (
     'lib/Tira/CLI/Move.pm'           => 1,
     'lib/Tira/CLI/Police/Jobs.pm'    => 1,
     'lib/Tira/CLI/Records.pm'        => 1,
+    'lib/Tira/CLI/Release.pm'        => 1,
     'lib/Tira/CLI/Wizard.pm'         => 1,
     'lib/Tira/DashboardWeb.pm'       => 1,
     'lib/Tira/Job.pm'                => 1,

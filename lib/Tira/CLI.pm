@@ -269,7 +269,7 @@ sub run {
         'start-date=s' => \$option{start_date}, 'sdlc-gate=s' => \$option{sdlc_gate},
         'lifecycle=s' => \$option{lifecycle}, 'priority=s' => \$option{priority},
         'numeric-field=s' => \$option{numeric_field}, 'numeric-value=s' => \$option{numeric_value},
-        'fix-version=s' => \$option{fix_version},
+        'fix-version=s' => \$option{fix_version}, 'force-version' => \$option{force_version},
         'repair-columns' => \$option{repair_columns}, 'apply' => \$option{apply},
         'recursive' => \$option{recursive}, 'include-deleted' => \$option{include_deleted},
         'include-discard' => \$option{include_discard},
@@ -2296,6 +2296,14 @@ sub _invoke {
         my $comment = $tira->$method(%args);
         $tira->comment_attach( %args, comment => $comment->{id}, file => $_ ) for @{ $option->{attach} };
         return $tira->comment_list(%args)->[-1];
+    }
+
+    # TKT-1207. The engine invokes no external process, so the version each
+    # card's own commit carries is looked up here and handed over as a plain
+    # value, like police's facts. --force-version skips the look altogether.
+    if ( $command eq 'release.record' && !$option->{force_version} ) {
+        require Tira::CLI::Release;
+        $args{commit_versions} = Tira::CLI::Release::commit_versions( $tira, \%args );
     }
     return $tira->$method(%args);
 }

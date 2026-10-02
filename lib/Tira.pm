@@ -52,7 +52,7 @@ use YAML::XS ();
     }
 }
 
-our $VERSION = '5.247';
+our $VERSION = '5.248';
 
 # What a card update writes, said once. record_update iterates these, and the
 # command line refuses them on the commands that write none of them - so the two
@@ -5120,6 +5120,14 @@ sub release_record {
         # evidence. TKT-569, against a comment on this very loop that had
         # promised exactly what the code did not do.
         my $written = eval {
+
+            # Inside the eval and before the first write, so a card whose
+            # version is refused leaves nothing behind and, in a batch, is
+            # reported in refused[] while the others are still recorded.
+            $self->_fix_version_agrees_with_commits(
+                ref => $ref, fix_version => $args{fix_version},
+                commit_versions => $args{commit_versions}, force => $args{force_version},
+            );
             my $gate = $self->gate_add( %identify,
                 gate => $args{gate}, result => $args{result}, details => $args{details} );
             my $evidence = $self->evidence_add( %identify, summary => $args{evidence} );
@@ -5151,6 +5159,39 @@ sub release_record {
     # read past.
     return $done[0] if @done == 1 && !@refused;
     return { recorded => \@done, ( @refused ? ( refused => \@refused ) : () ) };
+}
+
+# TKT-1207. release_record validated that --fix-version was shaped like a
+# version and nothing more, so 5.245 was recorded on a card whose own commits
+# carry VERSION=5.240; it was found only by mapping each commit to its version
+# by hand during a ten-card batch release. A wrong-but-real version is read
+# later as "this fix shipped in X".
+#
+# This compares the version with a FACT the caller hands over:
+# commit_versions->{REF} = { commit => SHA, version => VERSION }, the version
+# in .env at the OLDEST commit whose subject begins "REF:" - the commit that
+# introduced the fix, which is where this project's convention bumps it.
+# The engine looks at no repository itself: it invokes no shell and no
+# external process, which is the guarantee that lets it be trusted inside
+# another tool. tira.release.record gathers the fact
+# (Tira::CLI::Release::commit_versions) and passes it in, the same
+# split police uses. No fact for a ref means nothing to compare - no git, no
+# commit naming the ref (a review card has none), a commit with no .env or
+# VERSION line - and so does a value that is not a version number at all
+# ('none', 'n/a - ...'). --force-version is the way past it for a card that
+# genuinely shipped in a later release than its commit.
+sub _fix_version_agrees_with_commits {
+    my ( $self, %args ) = @_;
+    return if $args{force};
+    my $version = $args{fix_version};
+    return if !defined $version || $version !~ /\A\d+(?:\.\d+){1,2}\z/;
+
+    my $own = ( $args{commit_versions} // {} )->{ $args{ref} };
+    return if ref $own ne 'HASH' || !defined $own->{version} || $own->{version} eq $version;
+
+    die sprintf "Fix version %s does not match %s's own commit %s, which carries VERSION=%s - "
+      . "record %s, or pass --force-version if %s really is the version it shipped in\n",
+      $version, $args{ref}, substr( $own->{commit} // '', 0, 7 ), $own->{version}, $own->{version}, $version;
 }
 
 # The one declared set checklist_list/checklist_add/checklist_update all

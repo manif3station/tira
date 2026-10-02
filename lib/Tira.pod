@@ -1864,6 +1864,19 @@ in one call. Refuses rather than defaults on anything missing, and never moves
 a column. Given several refs it records each independently, so one that cannot
 be written does not take the rest down with it.
 
+Since 5.248 (TKT-1207) it also refuses a C<fix_version> that disagrees with the
+card's own commit. The engine runs no external process, so it compares a fact it is
+handed - C<commit_versions>, C<{ REF =E<gt> { commit =E<gt> SHA, version =E<gt> VERSION } }>, the
+C<VERSION=> line of F<.env> at the oldest commit whose subject begins C<REF:>,
+which C<tira.release.record> gathers (C<Tira::CLI::Release::commit_versions>).
+A difference dies naming the ref, both versions and the commit before
+anything is written for that card, so in a batch only that card lands in
+C<refused>. A caller that passes no C<commit_versions>, such as the browser
+dashboard's release dialog, is not checked. A ref no commit names, a commit with no F<.env> or C<VERSION> line,
+a project outside git or in a shallow clone, and a value that is not a version number (C<none>,
+C<n/a - ...>) are never compared. Passing C<force_version> (the C<--force-version>
+option) records the given version anyway.
+
 =head2 hierarchy_link
 
 Links a child record to a parent, establishing the SOW/epic/ticket hierarchy.

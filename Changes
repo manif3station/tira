@@ -1,5 +1,23 @@
 Revision history for Tira
 
+5.249  2026-10-02
+    - TKT-1208: a failing plain suite made `d2 gate.run` refuse with only
+      `Result: FAIL` and `the plain suite did not pass - refusing before any
+      coverage run starts`, naming no file, so the failing files had to be found
+      by running the suite another way. `gate-summarize` was not at fault: it
+      had already put prove's Test Summary Report into the captured output.
+      The loss was in `d2 gate.outer.refusal`, the handler gate.run calls when
+      the docker invocation exits non-zero: its branch for a log with no
+      `Result: PASS` was a bare `tail -3`, so only the report's last three
+      lines survived. TKT-997 had fixed the opposite shape (suite passed, a
+      later step refused) and left this one alone. It now prints everything
+      from the `Test Summary Report` line to the end of the log - each failing
+      file with its failed test numbers, the `Files=` and `Result:` lines and
+      the closing refusal - and none of the passing files above it; a log with
+      no report keeps the tail, and the passed-then-refused shape is unchanged.
+      Reproduced with a deliberately failing test committed on a scratch
+      branch. Found while gating TKT-1207. New t/1208 holds it.
+
 5.248  2026-10-02
     - TKT-1207: `d2 tira.release.record` accepted any version-shaped
       `--fix-version`, so `5.245` was recorded on a card whose own commits carry

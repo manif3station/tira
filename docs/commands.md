@@ -1886,8 +1886,10 @@ the entire captured output through a bare `tail -3`, with no way to tell
 whether the suite itself had passed, failed, or never started.
 `d2 gate.outer.refusal LOGFILE` checks for prove's own `Result: PASS`
 line first: present, it says the suite passed and shows what came after;
-absent, it falls back to the same tail, unchanged for a genuine suite
-failure.
+absent, it prints the suite's Test Summary Report when the log has one - every
+failing file with its failed test numbers, and the refusal after it, since 5.249
+(TKT-1208; before that it was a bare `tail -3`, so a failing plain suite refused
+with `Result: FAIL` and no file named) - and otherwise the same tail as always.
 
 **A short coverage collection is now retried once before the gate refuses,
 since 5.90** (TKT-825). `coverage-complete`'s own count check (TKT-954)

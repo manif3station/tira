@@ -1289,6 +1289,15 @@ records the version anyway for a card that shipped in a later release. In a
 batch only the refused card is left out. The browser dashboard's release dialog
 does not do this look-up and is not checked.
 
+### A gate refusal that names the failing files
+
+When the plain suite fails, `d2 gate.run` used to refuse with only `Result: FAIL`
+and `the plain suite did not pass`, naming no file (TKT-1208, 5.249). The report
+was never lost - it was in the captured output, and `gate-summarize` prints it -
+but the handler that shows the output after a failed docker run kept only its last
+three lines. It now prints everything from the `Test Summary Report` on: each
+failing file with its failed test numbers, and the closing refusal.
+
 ### tira.changes --help
 
 `d2 tira.changes --help` used to answer `Unknown option: help` and exit 255,

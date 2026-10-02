@@ -18,6 +18,12 @@
 #
 # with nothing distinguishing it from a suite that had never run at all.
 #
+# TKT-1208 corrected the half of that this header still got wrong: a suite that
+# FAILED does not leave "little else to show". The log then holds prove's whole
+# Test Summary Report - every failing file and its failed test numbers - and
+# `tail -3` kept only its last three lines, so the refusal read "Result: FAIL"
+# with no file named. A log with a report now prints from the report to its end.
+#
 # Extracted into its own tool rather than left as a line inside gate-run,
 # the same reason tools/gate-summarize exists rather than a check inline
 # there (TKT-961, TKT-716): gate-run has no test harness of its own.
@@ -38,6 +44,16 @@ fi
 if grep -q '^Result: PASS' "$log"; then
     echo "gate-run: the suite passed; something after it did not:"
     awk '/^Result: PASS/{f=1;next} f' "$log"
+elif grep -q '^Test Summary Report' "$log"; then
+    # TKT-1208. A suite FAILURE: tools/gate-summarize already put prove's
+    # Test Summary Report - every failing file and its failed test numbers -
+    # into this log, ahead of the Files/Result lines and the gate's own
+    # refusal. `tail -3` kept only the last three lines of all that, so the
+    # refusal read "Result: FAIL" and named no file, and the suite had to be
+    # re-run another way to find out which. The report runs to the end of the
+    # log, so printing from it on carries the lot, and none of the passing
+    # files above it.
+    awk '/^Test Summary Report/,0' "$log"
 else
     tail -3 "$log"
 fi

@@ -1,6 +1,7 @@
 requires 'Data::TOON', '0.03';
 requires 'YAML::XS', '0.83';
 requires 'Dancer2', '1.1.2';
+requires 'DateTime';
 
 # The dashboard's View. Dancer2 supports Template Toolkit and had no template
 # engine configured at all, so the page was built as Perl strings inside

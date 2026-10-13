@@ -76,8 +76,8 @@ while ( my $line = <$fh> ) {
     #     YYYY-MM-DDTHH
     #
     # Ignore anything that does not contain that timestamp shape.
-    my ( $year, $month, $day, $hour ) =
-      $line =~ /(\d{4})-(\d{2})-(\d{2})T(\d{2})/;
+    my ( $year, $month, $day, $hour, $minute ) =
+      $line =~ /(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/;
 
     if ( !defined $year ) {
         print "[Bridge] Skipping line without timestamp: $line\n";
@@ -91,11 +91,12 @@ while ( my $line = <$fh> ) {
     # Preserve the behaviour of the original Codex bridge:
     #   - record must be from today
     #   - record hour must be the current hour or later
+    #    Skip anything outside 5 minutes windows
     next
       if $year  != $dt->year
       || $month != $dt->month
       || $day   != $dt->day
-      || $hour  <  $dt->hour;
+      || "$hour:$minute" lt $dt->subtract( minutes => 1 )->strftime('%H:%M');
 
     print "[Bridge] Queueing to Copilot: $line\n";
 

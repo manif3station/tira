@@ -106,7 +106,7 @@ while ( my $line = <$fh> ) {
     #
     # This is deliberately NOT Enter. While Copilot is already working,
     # Enter is a steering message and can be folded into the current turn.
-    send_key_to_pane( $target_pane, 'C-q' );
+    send_key_to_pane( $target_pane, 'Enter' );
 }
 
 close $fh;
@@ -193,8 +193,6 @@ sub send_literal_to_pane {
     # -l means literal text: tmux will not interpret text such as "Enter",
     # "C-c", etc. as key names.
     system( 'tmux', 'send-keys', '-t', $pane, '-l', $text );
-    sleep 3;
-    system( 'tmux', 'send-keys', '-t', $pane, 'C-q' );
     sleep 3;
     system( 'tmux', 'send-keys', '-t', $pane, 'Enter' );
 
